@@ -1,0 +1,356 @@
+{
+  "version": "v0.7",
+  "sourceSha256": "1a65ca63089941800a925ca30874182e615025901ca5f6ba6cc58de78f450462",
+  "readiness": "CONDITIONAL: print coupons and confirm real component fit before full production",
+  "mainPartTypes": 13,
+  "mainPrintedPieceCount": 14,
+  "testPartTypes": 2,
+  "parts": [
+    {
+      "file": "stl_print/01_upper_shell.stl",
+      "quantity": 1,
+      "sha256": "f94494144943c9116c30abd022aba024bd26694ca2b6bdcd4329d00d79e49f9a",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        100,
+        100,
+        90.7
+      ],
+      "minZ": 0,
+      "volumeMm3": 88752.32770703646
+    },
+    {
+      "file": "stl_print/02_lower_frame.stl",
+      "quantity": 1,
+      "sha256": "0633c1897b08dca2ac3482a27e54d343094da2b9621687d92b3bf15753865ed6",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        100,
+        100,
+        60.700000762939005
+      ],
+      "minZ": -7.62939e-7,
+      "volumeMm3": 25113.80889876071
+    },
+    {
+      "file": "stl_print/03_lid.stl",
+      "quantity": 1,
+      "sha256": "43bff05df5ca3bbb87c7b1b810981b5156b5c0ac1fe95389ff698f8370d62dde",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        100,
+        100,
+        3
+      ],
+      "minZ": 0,
+      "volumeMm3": 28718.530411418513
+    },
+    {
+      "file": "stl_print/04_gate_slider.stl",
+      "quantity": 1,
+      "sha256": "eb62064c5934ae8f8d41bbe117a3566e0a59eb9d4c4055c456cd3704c0a98112",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        78,
+        16.205599999999997,
+        33
+      ],
+      "minZ": 0,
+      "volumeMm3": 4102.385851759824
+    },
+    {
+      "file": "stl_print/05_guide_cap_x2.stl",
+      "quantity": 2,
+      "sha256": "9b367fd9fe6313c4d6406f729519e2d31466b7908cfcd5030cd228c3af06bd3d",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        19,
+        10,
+        7
+      ],
+      "minZ": 0,
+      "volumeMm3": 683.9382695150005
+    },
+    {
+      "file": "stl_print/06_servo_mount.stl",
+      "quantity": 1,
+      "sha256": "cec7f2a6c2f9c79a0e2f7074e7f85a3653761ed644d305a6d69b4aa3d53edffb",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        100,
+        36,
+        20
+      ],
+      "minZ": 0,
+      "volumeMm3": 8553.312430741124
+    },
+    {
+      "file": "stl_print/07_servo_clamp.stl",
+      "quantity": 1,
+      "sha256": "b7bbc59fe3839b288d1fc79bdb8565afdfe042eba197e27b88fe19ac4a47976b",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        6,
+        36,
+        5.6
+      ],
+      "minZ": 0,
+      "volumeMm3": 767.4793434689989
+    },
+    {
+      "file": "stl_print/08_connecting_link.stl",
+      "quantity": 1,
+      "sha256": "32f25b6251496e0e08e8285dcd91e07b20edec5e038d008f18a2bb937d85fe73",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        6,
+        27,
+        2.5
+      ],
+      "minZ": 0,
+      "volumeMm3": 355.0062176697995
+    },
+    {
+      "file": "stl_print/09_motor_mount_left.stl",
+      "quantity": 1,
+      "sha256": "c7156dbf1194419faa56e3a7cc9ee3001dd7357501b7bd54ac5af9f889103639",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        34.5,
+        28.5,
+        34
+      ],
+      "minZ": 0,
+      "volumeMm3": 6628.328967417081
+    },
+    {
+      "file": "stl_print/10_motor_mount_right.stl",
+      "quantity": 1,
+      "sha256": "dd2047673ae859cce37d2a6b5ec9a44181fb78068e35eabbec3f0f31bbebd6f0",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        34.5,
+        28.5,
+        34
+      ],
+      "minZ": 0,
+      "volumeMm3": 6628.328967417077
+    },
+    {
+      "file": "stl_print/11_electronics_deck.stl",
+      "quantity": 1,
+      "sha256": "6c12915150aa9785bce813021403519a3d902e62e3565dc9ae608d4a7717b38d",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        86,
+        52,
+        3.5
+      ],
+      "minZ": 0,
+      "volumeMm3": 10370.587292615171
+    },
+    {
+      "file": "stl_print/12_battery_tray.stl",
+      "quantity": 1,
+      "sha256": "f22f1cc8ed272005990179862016900a7e333513e9cd3c01d4866b65ffc211c9",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        45,
+        45.3,
+        29.5
+      ],
+      "minZ": 0,
+      "volumeMm3": 10814.11130310393
+    },
+    {
+      "file": "stl_print/13_caster_mount.stl",
+      "quantity": 1,
+      "sha256": "9fdc788b89da5247e1e070070cf03830f460ff991df62dc28c38658d768697b2",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        30,
+        10.5,
+        15
+      ],
+      "minZ": 0,
+      "volumeMm3": 2094.981452263819
+    },
+    {
+      "file": "stl_test_first/fit_coupon.stl",
+      "quantity": 1,
+      "sha256": "db7f2c3175bc0f735df1a4b1902fe05c67aa5e716693d6c06643febb6856e7fa",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        65,
+        40,
+        6
+      ],
+      "minZ": 0,
+      "volumeMm3": 14602.91806763221
+    },
+    {
+      "file": "stl_test_first/guide_test_key.stl",
+      "quantity": 1,
+      "sha256": "a7a631169a2e4fa1694a02f17c921f6c1aa7ac91557273f4e8061096c99041de",
+      "closed": true,
+      "connectedComponents": 1,
+      "sizeMm": [
+        12,
+        12,
+        14
+      ],
+      "minZ": 0,
+      "volumeMm3": 576
+    }
+  ],
+  "protectedCaptureParameters": [
+    "sample_diameter",
+    "sample_thickness",
+    "capture_center_x",
+    "capture_center_y",
+    "sample_radial_clearance",
+    "rear_barrier_height",
+    "rear_barrier_thickness",
+    "rear_barrier_arc",
+    "rear_left_center_angle",
+    "rear_right_center_angle",
+    "front_gate_arc",
+    "front_gate_height",
+    "front_gate_thickness",
+    "front_gate_down_bottom_z",
+    "front_gate_up_bottom_z",
+    "funnel_front_width",
+    "funnel_exit_width",
+    "funnel_length",
+    "funnel_wall_height",
+    "funnel_wall_thickness",
+    "funnel_tip_radius",
+    "funnel_curve_strength"
+  ],
+  "joints": {
+    "guideCaps": "removable, quantity 2",
+    "gateAndCarrier": "one rigid print",
+    "servoMount": "bolted to shortened posts, removable clamp, horn/pin clearance opening",
+    "batteryTray": "independent four-point deck mounting",
+    "nuts": "22 nominal M3 hex nuts in aligned pockets; no heat-set inserts required",
+    "deckThicknessMm": 3.5
+  },
+  "checks": [
+    {
+      "name": "servo_posts",
+      "status": "no intersection"
+    },
+    {
+      "name": "upper_lower",
+      "status": "no intersection"
+    },
+    {
+      "name": "gate_upper_sweep",
+      "status": "no intersection"
+    },
+    {
+      "name": "battery",
+      "status": "intended zero-thickness support contact",
+      "intersectionVolumeMm3": 0
+    },
+    {
+      "name": "tray",
+      "status": "intended zero-thickness support contact",
+      "intersectionVolumeMm3": 2.8828051057416815e-12
+    },
+    {
+      "name": "servo_body",
+      "status": "intended zero-thickness support contact",
+      "intersectionVolumeMm3": 0
+    },
+    {
+      "name": "motor_deck",
+      "status": "intended zero-thickness support contact",
+      "intersectionVolumeMm3": 9.281464485866309e-12
+    },
+    {
+      "name": "wheels_caster",
+      "status": "no intersection"
+    },
+    {
+      "name": "motor_body",
+      "status": "intended zero-thickness support contact",
+      "intersectionVolumeMm3": 4.440892098500626e-13
+    },
+    {
+      "name": "link_slider_UP",
+      "status": "no intersection"
+    },
+    {
+      "name": "link_slider_DOWN",
+      "status": "no intersection"
+    },
+    {
+      "name": "nuts",
+      "status": "no intersection"
+    },
+    {
+      "name": "bolts",
+      "status": "intended zero-thickness support contact",
+      "intersectionVolumeMm3": 2.0269341760581483e-11
+    },
+    {
+      "name": "link_fixed_sweep",
+      "status": "no intersection"
+    },
+    {
+      "name": "horn_pin_sweep",
+      "status": "no intersection"
+    },
+    {
+      "name": "gate_fixed_UP",
+      "status": "no intersection"
+    },
+    {
+      "name": "gate_fixed_DOWN",
+      "status": "no intersection"
+    }
+  ],
+  "kinematics": {
+    "status": "pass",
+    "sampleCount": 189,
+    "maximumStepDegrees": 0.5,
+    "rodCenterDistanceMm": 21,
+    "gateTravelMm": 11.7,
+    "continuousMonotonicDerivativeLowerBound": 4.74318,
+    "guideEndStopClearance": "positive at both travel limits"
+  },
+  "nominalClearancesMm": {
+    "lugToServoSide": 0.75,
+    "linkToLugSide": 0.75,
+    "linkEndToCarrierBeam": 0.5,
+    "guideSleevePerSide": 0.4,
+    "guideCapSocketPerSide": 0.3,
+    "motorToBatteryCradle": 0.5,
+    "batteryTopToDeck": 7,
+    "wheelToShell": 3,
+    "gateUpToDisk": 7
+  },
+  "verificationLimits": [
+    "No physical printing or slicer/G-code validation",
+    "No measured motor/servo/caster/battery/horn dimensions",
+    "M3 nuts and selected bolt envelopes are nominal gauges, not manufacturer hardware models",
+    "No load, fatigue, thermal, tire-compression or cable validation",
+    "Center of mass must be inside the rear support triangle before powered driving",
+    "Shell 100x100x100 mm; wheel-inclusive width 126 mm"
+  ]
+}
