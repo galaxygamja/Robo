@@ -1,5 +1,9 @@
 # Robo Control Lab
 
+> 팀 작업을 시작하기 전에 [전체 프로젝트 기록](ROBOTICS_PROJECT_FULL_RECORD_KO.txt)의
+> `2026-09-05 팀 작업 인계`와 [소프트웨어 중복 방지 인계표](docs/SOFTWARE_PLAN_KO.md)를
+> 확인하세요. 실제 카메라 보정과 4대 AprilTag 프레임 관측은 이미 구현됐습니다.
+
 ## 실제 카메라 코드: 영상 입력과 경기장 좌표 보정
 
 `robo_control.vision`은 실제 USB 카메라 또는 녹화 파일을 읽어 경기장 평면을
@@ -180,7 +184,8 @@ python -m robo_control --headless
 python -m unittest discover -s tests -v
 ```
 
-2026-09-05 재검증에서 Python 35개, 웹 시뮬레이터 11개 테스트가 모두
+아래 수치는 이전 6대 시뮬레이터만 따로 재검증한 기준이다. 당시 Python 35개,
+웹 시뮬레이터 11개 테스트가 모두
 통과했습니다. Python 기본 미션은 가상시간 8.05초에 6/6 완료했고, 웹의
 메카넘 임시 경로는 약 31.99초에 6/6 완료했습니다. 서로 다른 경로·충돌 모델을
 쓰므로 두 시간은 성능 비교값이 아닙니다.
@@ -234,6 +239,7 @@ Robo/
 ├─ START_SIMULATOR.bat              Windows용 더블클릭 실행 파일
 ├─ MANIFEST.in                      설치 패키지에 기본 데이터를 포함하는 목록
 ├─ config/default.json              경기장·속도·안전 설정
+├─ config/robot_tags.json           H1/H2/B1/B2 태그·장착 설정
 ├─ config/scenario_demo.json        로봇·임무·장애물 예시 좌표
 ├─ robo_control/
 │  ├─ config.py                     설정·패키지 데이터 로드와 검증
@@ -242,10 +248,15 @@ Robo/
 │  ├─ simulation.py                 6대 결정론적 시뮬레이션
 │  ├─ server.py                     REST API·웹 관제 화면
 │  ├─ adapters.py                   카메라·UDP·드론 교체 경계
+│  ├─ vision/                       실제 영상 보정·프레임 검사·AprilTag 검출 CLI
 │  ├─ __main__.py                   실행 명령
 │  └─ data/                         설치본용 기본 설정·시나리오 사본
-├─ tests/                            하드웨어 없는 자동 검증
+├─ tests/                            기본·실제 파일 디코딩·합성 투영 자동 검증
 ├─ tools/benchmark.py                반복 성능·안전 벤치마크
+├─ tools/generate_robot_tags.py      검출기와 일치하는 인쇄용 태그 생성
+├─ docs/CAMERA_CALIBRATION_KO.md     실제 카메라·보정 사용 및 실측 절차
+├─ docs/APRILTAG_TRACKING_KO.md      4대 태그 관측 계약과 안전 경계
+├─ docs/SOFTWARE_PLAN_KO.md          현재 구현 상태·팀 중복 방지 인계표
 ├─ docs/IMPLEMENTATION_GUIDE_KO.md   상세 구현·실물 전환 설명서
 ├─ docs/RC_MECANUM_ADAPTATION_KO.md  전방향 RC카 원리·개조·검증 설명서
 ├─ docs/TEST_PLAN_KO.md              자동·실물 시험 항목과 합격 기준
@@ -278,15 +289,17 @@ Robo/
 명령 폐루프에 연결되어 있지 않습니다. 따라서 클래스를 단순 교체하는 것만으로
 실제 로봇이 움직이지 않습니다. 다음 통합 작업과 시험이 먼저 필요합니다.
 
-1. 카메라 프레임에서 AprilTag/ArUco를 검출하고, 4개 이상의 경기장 기준점으로
-   픽셀 좌표를 미터 좌표로 변환하는 관측 파이프라인을 구현합니다.
-2. 관측 시각·신뢰도·로봇 ID를 검증해 `RobotState`를 갱신하고, 0.5초 이상
-   오래된 추적은 안전정지로 연결합니다.
-3. 계획 경로를 `RobotCommand`로 변환하는 추종 제어와 sequence·TTL 검사를
+1. 이미 구현된 `TagDetectionBatch`를 다중 프레임 로봇 상태로 연결하고,
+   마지막 정상 관측 후 0.5초가 지나면 안전정지시키는 tracker/watchdog을 만듭니다.
+2. 고정 카메라 2대 각각의 보정값을 관리하고 프레임 시간 동기화·중복 관측
+   충돌 처리를 거쳐 하나의 관측 스트림으로 융합합니다.
+3. 검증된 추적 결과로 `RobotState`를 갱신합니다. 현재 `observation_complete`만으로
+   모터를 허가하거나 마지막 위치를 무기한 재사용하면 안 됩니다.
+4. 계획 경로를 `RobotCommand`로 변환하는 추종 제어와 sequence·TTL 검사를
    구현한 뒤, 먼저 `DryRunTransport`로 명령 내용을 폐루프 검증합니다.
-4. ESP32가 목표좌표, 속도 제한, 시퀀스 번호, TTL을 받고 자체 엔코더 PID를
+5. ESP32가 목표좌표, 속도 제한, 시퀀스 번호, TTL을 받고 자체 엔코더 PID를
    수행하도록 만든 뒤 loopback·1대 HIL 시험을 통과시킵니다.
-5. 새 유효 명령이 300~500ms 안에 도착하지 않으면 펌웨어가 독립적으로 모터를
+6. 새 유효 명령이 300~500ms 안에 도착하지 않으면 펌웨어가 독립적으로 모터를
    정지하게 하고, 이 watchdog을 검증한 뒤에만 `UdpRobotTransport` 출력을
    명시적으로 활성화합니다.
 

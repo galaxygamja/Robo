@@ -1,10 +1,10 @@
 # Robo Control Lab 상세 테스트 계획
 
-> 대상: 현재 저장소의 `robo_control` 패키지와 6대 로봇 시뮬레이터  
-> 기준 설정: `config/default.json`  
-> 테스트 프레임워크: Python 표준 라이브러리 `unittest`  
-> 작성 기준일: 2026-09-04  
-> 범위: 부품 없이 실행되는 v0.1의 검증과 향후 카메라·ESP32·드론 연결 전후의 검증 계획
+> 대상: 현재 저장소의 `robo_control` 패키지, 6대 로봇 시뮬레이터와 4대 실물 로봇용 비전 입력 계층
+> 기준 설정: `config/default.json`, `config/robot_tags.json`과 현장별로 생성하는 보정 JSON
+> 테스트 프레임워크: Python 표준 라이브러리 `unittest`
+> 갱신 기준일: 2026-09-05 (`ef5e020`)
+> 범위: 부품 없이 실행되는 시뮬레이션·비전 회귀시험과 향후 카메라·ESP32·드론 연결 전후의 검증 계획
 
 이 문서는 이미 자동화된 시험과 앞으로 만들어야 할 시험을 분명히 구분한다.
 계획에 적혀 있다는 이유만으로 기능이 구현됐거나 검증됐다고 간주하면 안 된다.
@@ -15,7 +15,7 @@
 
 | 표기 | 의미 |
 |---|---|
-| **자동화 완료** | 현재 `tests/`에 실행 가능한 `unittest`가 있으며 2026-09-04 기준 통과했다. |
+| **자동화 완료** | 현재 `tests/`에 실행 가능한 `unittest`가 있으며 2026-09-05 기준 통과했다. |
 | **자동화 필요** | 소프트웨어만으로 만들 수 있으나 현재 대응 테스트가 없거나 충분하지 않다. |
 | **기능 구현 필요** | 테스트보다 먼저 제품 코드 또는 고장 주입 지점이 추가되어야 한다. |
 | **실물 검증 필요** | 카메라, ESP32, 모터, 로봇 또는 드론 없이는 최종 합격을 판정할 수 없다. |
@@ -35,9 +35,14 @@
 | `robo_control/planner.py` | 임무 배정, 격자, 예약표, 공간-시간 A*, 6대 순차 우선계획 | `tests/test_planner.py` |
 | `robo_control/simulation.py` | 데모 시나리오, 120초 시계, 경로 보간, 충돌·경계 감시, 스냅샷 | `tests/test_simulation.py` |
 | `robo_control/server.py` | 로컬 HTTP API와 웹 관제 화면 | `tests/test_server.py` |
-| `robo_control/adapters.py` | 합성/실카메라 경계, 로봇 명령, dry-run/UDP, 비활성 드론, JSONL 로그. 엔진 폐루프에는 미연결 | 전용 시험 없음 |
-| `robo_control/__main__.py` | CLI, headless 실행, 서버 실행 | 전용 시험 없음 |
-| `robo_control/data/`, `MANIFEST.in` | wheel/sdist 설치본의 기본 설정·시나리오 fallback | `tests/test_config.py`, CI 패키징 smoke |
+| `robo_control/adapters.py` | 합성·USB·스트림·로컬 영상 입력, 로봇 명령, dry-run/UDP, 비활성 드론, JSONL 로그. 엔진 폐루프에는 미연결 | 카메라 입력은 `tests/test_camera_sources.py`; 나머지 adapter 전용 시험은 아직 없음 |
+| `robo_control/vision/calibration.py` | 4점 경기장 호모그래피, 픽셀↔경기장 mm 변환, 보정 저장·로드 | `tests/test_vision_calibration.py`, `tests/test_vision_cli.py` |
+| `robo_control/vision/pipeline.py` | 프레임 순서·획득시각·수신시각·최대 나이·소스·해상도 gate | `tests/test_vision_pipeline.py` |
+| `robo_control/vision/tags.py` | OpenCV AprilTag 단일 프레임 검출, 4대 ID 매핑, 방향·장착 오프셋, 관측 거부 사유 | `tests/test_apriltag_detection.py`, `tests/test_apriltag_cli.py` |
+| `robo_control/vision/__main__.py` | 보정·rectify·기준점 확인·AprilTag detect CLI | `tests/test_vision_cli.py`, `tests/test_apriltag_cli.py` |
+| `tools/generate_robot_tags.py` | 설정과 동일한 AprilTag 인쇄 자산·방향 기준 이미지 생성 | `tests/test_tag_assets.py` |
+| `robo_control/__main__.py` | CLI, headless 실행, 서버 실행 | `tests/test_cli.py` |
+| `robo_control/data/`, `MANIFEST.in` | wheel/sdist 설치본의 기본 설정·시나리오·태그 설정 fallback | `tests/test_config.py`, `tests/test_apriltag_detection.py`, CI 패키징 smoke |
 
 ### 2.2 기본 설정값
 
@@ -66,20 +71,24 @@
 따라서 0.138m를 유지해도 실물 직사각형 차체의 비접촉을 보장하지 않으며,
 방향 있는 외형과 실측 여유를 사용한 별도 시험이 필요하다.
 
-### 2.3 2026-09-04 실행 기준선
+### 2.3 2026-09-05 실행 기준선 (`ef5e020`)
 
 다음 명령과 같은 방식으로 현재 시험을 실행했다.
 
 ```powershell
+.venv\Scripts\python.exe -m unittest discover -s tests -v
 python -m unittest discover -s tests -v
+pnpm --dir web_simulator test
 python -m robo_control --headless
 ```
 
 검증 환경에서는 Python 3.12.14를 사용했다. 프로젝트의 지원 하한인 Python
 3.11에서도 별도로 실행해야 한다.
 
-- `unittest` 24개: 모두 통과
-- 전체 테스트 시간: 약 1.68초
+- vision 환경(`opencv-contrib-python`, NumPy 설치): Python `unittest` 172개 모두 통과
+- OpenCV 없는 기본 환경: 같은 172개를 발견하고 vision 의존 시험 87개 skip,
+  나머지 85개 모두 통과
+- 웹 시뮬레이터: Node 시험 26개 모두 통과
 - 기본 headless 실행: `completed`
 - 기본 headless 완료 시뮬레이션 시각: 약 8.05초
 - 완료 임무: 6/6
@@ -91,6 +100,10 @@ python -m robo_control --headless
 시험이 아니다. 실행시간과 계획시간은 컴퓨터·Python·부하에 따라 바뀌므로
 고정된 정답이 아니다.
 회귀 비교에는 평균만 쓰지 말고 p95, p99와 최댓값을 함께 기록한다.
+
+현재 완료 기준은 소프트웨어에서 생성한 태그 이미지와 실제 PNG/MJPG 파일
+입출력을 사용한 회귀시험이다. 실물 카메라·인쇄 태그·차체로 정확도와 지연을
+검증했다는 뜻은 아니다.
 
 ## 3. 현재 자동화가 보장하는 범위
 
@@ -201,7 +214,11 @@ python -m robo_control --headless
 **실물 검증 필요**
 
 - `OpenCVCameraSource`의 실제 USB/RTSP 프레임률, 끊김, 재연결
-- AprilTag/ArUco 검출과 경기장 호모그래피 정확도
+- 구현된 4점 경기장 호모그래피의 실물 카메라 위치오차와 반복 재보정 오차
+- 구현된 단일 프레임 AprilTag 검출의 인쇄 크기·거리·조명·가림별 정확도
+- 렌즈 왜곡 보정 전후 오차와, 바닥 평면보다 높은 차체 위 태그에서 생기는
+  원근 위치오차
+- 고정 카메라 2대의 시간 정렬·중첩 영역 좌표 일치·관측 융합
 - `UdpRobotTransport` 이후 ESP32의 명령 검증과 모터 정지
 - 실제 엔코더 PID와 목표 위치·방향 오차
 - 물리 비상정지와 전원 차단
@@ -393,7 +410,8 @@ CFG-08과 CFG-09의 현재 구현은 65535 초과·비정수 포트와 음수 ma
 
 ### 6.8 `adapters.py`
 
-권장 신규 파일: `tests/test_adapters.py`
+현재 카메라 시험 파일: `tests/test_camera_sources.py`
+나머지 adapter 권장 신규 파일: `tests/test_adapters.py`
 
 현재 정확한 합성 입력 클래스 이름은 `SyntheticCameraSource`다. 이 클래스와
 `OpenCVCameraSource`, `DryRunTransport`, `UdpRobotTransport`는 아직
@@ -402,10 +420,10 @@ CFG-08과 CFG-09의 현재 구현은 65535 초과·비정수 포트와 음수 ma
 
 | ID | 상태 | 검증 내용 |
 |---|---|---|
-| ADP-01 | 자동화 필요 | `SyntheticCameraSource` sequence가 1씩 증가하고 snapshot을 전달 |
-| ADP-02 | 자동화 필요 | synthetic source의 source name과 timestamp가 유효 |
-| ADP-03 | 자동화 필요 | OpenCV가 없으면 설치 안내가 포함된 `RuntimeError` |
-| ADP-04 | 실물 검증 필요 | 실제 USB/RTSP 열기, frame drop, reconnect, close |
+| ADP-01 | 자동화 완료 | `SyntheticCameraSource` sequence가 1씩 증가하고 snapshot을 전달 |
+| ADP-02 | 자동화 완료 | synthetic source와 OpenCV source의 source name, 획득·수신 timestamp, sequence가 유효 |
+| ADP-03 | 자동화 완료 | OpenCV가 없으면 설치 안내가 포함된 `RuntimeError` |
+| ADP-04 | 부분 자동화·실물 검증 필요 | capture 오류·EOF·close와 실제 로컬 영상 decode는 자동화 완료. USB/RTSP 실물 연결, frame drop, reconnect는 미검증 |
 | ADP-05 | 자동화 필요 | `RobotCommand.as_payload()`가 Point를 JSON object로 변환 |
 | ADP-06 | 자동화 필요 | emergency stop, gate, heading, 속도 필드가 손실 없이 직렬화 |
 | ADP-07 | 자동화 필요 | `DryRunTransport`가 순서를 유지하고 장기 실행에서 1,000개를 넘겨 무한 증가하지 않음 |
@@ -416,6 +434,7 @@ CFG-08과 CFG-09의 현재 구현은 65535 초과·비정수 포트와 음수 ma
 | ADP-12 | 자동화 필요 | `JsonlLogger`가 UTF-8 append, 한 줄 한 JSON, 디렉터리 자동생성 |
 | ADP-13 | 자동화 필요 | logger 입력에 한국어와 여러 record가 있어도 replay 가능 |
 | ADP-14 | 기능 구현 필요 | camera frame을 상태에 반영하고 계획 경로를 dry-run command로 발행하는 폐루프 |
+| ADP-15 | 자동화 완료 | 로컬 영상 경로·media clock·EOF를 검증하고 URL/디렉터리를 영상 파일로 오인하지 않음 |
 
 loopback UDP 시험은 실제 ESP32를 움직이지 않으므로 CI에서 실행할 수 있다.
 실제 무선망 손실과 firmware watchdog은 별도의 HIL 시험이다.
@@ -640,7 +659,7 @@ polygon 또는 실측으로 검증한 충분히 보수적인 연속 충돌검사
 
 | Gate | 진입 조건 | 합격 조건 |
 |---|---|---|
-| G0 현재 회귀 | 저장소 checkout | 기존 24개 unittest 전부 통과 |
+| G0 현재 회귀 | 저장소 checkout | vision 환경 172/172, 기본 환경 172개 발견·87 skip·85 통과, 웹 26/26 |
 | G1 핵심 단위 | config/models/planner 시험 추가 | P0·P1 실패 0, 핵심 분기 coverage 90% 목표 |
 | G2 6대 결정 시나리오 | SCN-N/U/T 구현 | 각 시나리오 20회 동일 결과, 충돌·경계 위반 0 |
 | G3 고장 주입 | tracking/network/dynamics 구현 | 모든 timeout에서 안전정지, stale 명령 0 |
@@ -667,18 +686,45 @@ polygon 또는 실측으로 검증한 충분히 보수적인 연속 충돌검사
 
 ## 11. 카메라와 추적 시험
 
-### 11.1 부품 없이 가능한 시험
+### 11.1 부품 없이 완료된 단일 프레임 시험
 
-**기능 구현 필요 후 자동화 가능**
+**자동화 완료**
 
-- 합성 ground truth snapshot을 camera frame으로 전달
-- sequence 누락, 중복, 역순 주입
-- 0.2/0.5/1.0초 frame gap
-- 위치 ±5/15/30mm, 방향 ±2/5/10° 잡음
-- 태그 하나만 가려짐과 전체 frame 손실
-- 재획득 시 과거 위치로 순간이동하지 않고 현재 위치에서 재계획
+| ID | 시험 파일 | 현재 보장 범위 |
+|---|---|---|
+| VIS-01 | `tests/test_camera_sources.py` | 합성·USB/stream capture 경계, 획득·수신시각과 sequence, 오류·EOF·close, 실제 로컬 영상 decode |
+| VIS-02 | `tests/test_vision_calibration.py`, `tests/test_vision_cli.py` | 이름 있는 4개 꼭짓점, 호모그래피, 픽셀↔경기장 mm, rectify, 저장·로드, 독립 기준점, 잘못된 해상도·기하 거부 |
+| VIS-03 | `tests/test_vision_pipeline.py` | frame sequence·시각·나이·소스·해상도 gate, 검출 같은 외부 작업 도중 만료, begin/finish/abandon 계약 |
+| TAG-01 | `tests/test_tag_assets.py` | 설정된 OpenCV AprilTag family/ID와 방향축이 일치하는 인쇄 자산 생성, 명시적 허용 없는 덮어쓰기 방지 |
+| TAG-02 | `tests/test_apriltag_detection.py` | 원근 변형된 4개 태그의 단일 프레임 위치·방향, 로봇 중심 장착 오프셋, 미등록·중복·경기장 밖·크기 불일치·누락 거부 |
+| TAG-03 | `tests/test_apriltag_cli.py` | 실제 PNG와 디스크의 MJPG 영상 입력, JSONL 보고, 주석 이미지, headless module 진입점 |
 
-### 11.2 녹화영상과 실카메라
+이 시험은 OpenCV로 만든 ground truth 태그 장면과 디스크에 실제로 저장한
+PNG/MJPG 파일을 사용한다. 따라서 입출력과 단일 프레임 수학의 회귀는
+보장하지만, 실제 렌즈·조명·인쇄물·카메라 지연을 재현하지는 않는다.
+
+`observation_complete`는 한 프레임에 필요한 로봇 관측이 모두 있었다는 뜻일
+뿐이며 모터 명령을 내려도 된다는 안전 판정이 아니다.
+
+### 11.2 아직 구현되지 않은 후속 소프트웨어 시험
+
+**기능 구현 필요**
+
+- 여러 프레임의 로봇 ID·위치·방향 추적, 필터링과 속도 추정
+- 0.2/0.5/1.0초 frame gap, 일부·전체 태그 손실을 상태기계에 연결하고
+  0.5초 이상 손실 시 해당 로봇 또는 영향 로봇에 정지 명령 발행
+- 태그 재획득 때 과거 위치로 순간이동하지 않는 재동기화·재계획
+- 고정 카메라 2대의 timestamp 정렬, 동일 로봇 중복 관측 선택·융합,
+  한 카메라 단절 시 전환
+- 렌즈 왜곡 계수 보정과 바닥보다 높은 태그의 투영 오차 보상
+- HSV 기반 색상·경기 물체 검출
+- 카메라 관측→엔진 상태→계획→명령의 폐루프 통합
+
+위 항목에는 아직 제품 코드와 합격 가능한 자동시험이 없다. 특히 현재 frame
+freshness gate가 존재한다는 사실만으로 500ms 안전정지가 구현된 것으로
+간주하면 안 된다.
+
+### 11.3 녹화영상과 실카메라
 
 **실물 검증 필요**
 
@@ -689,10 +735,15 @@ polygon 또는 실측으로 검증한 충분히 보수적인 연속 충돌검사
 | 방향오차 | 5° 이하 |
 | 영상→명령 종단 지연 | p99 200ms 이하 |
 | 0.5초 이상 추적 손실 | 해당 로봇 정지 |
+| 렌즈 중심·가장자리 위치오차 | 왜곡 보정 전후를 따로 기록하고 기준 확정 |
+| 바닥과 실제 태그 높이 차이의 위치오차 | 높이별 측정 후 보정 방식과 기준 확정 |
+| 2카메라 중첩 영역 좌표 차이 | 거리·방향 분포를 측정해 융합 기준 확정 |
 
-색상 인식은 사용자의 최신 요구에서 필수로 보지 않는다. 코어 합격 게이트에
-넣지 않는다. 대회 임무상 다시 필요해질 때 별도 선택 모듈과 데이터셋으로
-검증한다.
+이 표는 목표이며 현재 통과 결과가 아니다. `ef5e020`에서 완료된 작업은
+카메라 입력·보정·freshness gate·4대 AprilTag 단일 프레임 검출·태그 자산
+자동시험이다. 동일 기능을 새로 구현하지 말고 이 모듈과 시험을 확장한다.
+다중 프레임 추적/500ms 정지, HSV, 렌즈·태그 높이 보정과 2카메라 융합은
+별도 후속 작업이므로 담당을 정한 뒤 시작한다.
 
 ## 12. ESP32와 통신 시험
 
@@ -803,6 +854,13 @@ SimulationEngine의 안전감시를 중단해서는 안 된다.
 
 ```text
 tests/
+├─ test_camera_sources.py      # 카메라 source 수명주기·영상 파일 입력
+├─ test_vision_calibration.py  # 호모그래피·좌표 변환·보정 설정
+├─ test_vision_pipeline.py     # 순서·시각·freshness·해상도 frame gate
+├─ test_vision_cli.py          # 보정·rectify CLI와 실제 영상 파일
+├─ test_apriltag_detection.py  # 4대 AprilTag 단일 프레임 관측
+├─ test_apriltag_cli.py        # 이미지·영상 검출 CLI와 JSONL
+├─ test_tag_assets.py          # 인쇄 태그와 detector 설정 일치
 ├─ test_config.py             # 설정 경계와 오류
 ├─ test_models.py             # 좌표·도형·직렬화
 ├─ test_planner.py            # 배정·격자·예약·A*
@@ -824,19 +882,26 @@ tests/helpers/
 └─ snapshot_assertions.py
 ```
 
-현재 외부 의존성 없이 실행되는 장점을 유지한다. 성능 측정과 실제 카메라처럼
-환경에 민감한 시험은 일반 단위시험과 분리하고 명시적인 명령으로 실행한다.
+OpenCV 없는 기본 환경에서도 전체 시험을 발견하되 vision 시험만 명시적으로
+skip하는 장점을 유지한다. vision 의존 시험은 `[vision]` 환경에서 모두
+실행한다. 성능 측정과 실제 카메라처럼 환경에 민감한 시험은 일반 단위시험과
+분리하고 명시적인 명령으로 실행한다.
 
 ## 17. 실행 명령과 결과 기록
 
 ### 17.1 현재 빠른 회귀시험
 
 ```powershell
+.venv\Scripts\python.exe -m unittest discover -s tests -v
 python -m unittest discover -s tests -v
+pnpm --dir web_simulator test
 ```
 
-2026-09-04 기준 기록은 테스트 24개가 약 1.68초에 모두 `OK`다. 앞으로 시험이 추가되면 숫자를 문서에 고정해
-합격시키지 말고 발견된 전체 시험 수와 실패 0을 기준으로 한다.
+2026-09-05 `ef5e020` 기준 기록은 vision 환경 Python 172/172 통과,
+OpenCV 없는 기본 환경은 172개 발견·87개 skip·나머지 85개 통과, 웹은
+26/26 통과다. 앞으로 시험이 추가되면 숫자를 문서에 고정해 합격시키지 말고
+발견된 전체 시험 수와 실패 0을 기준으로 한다. vision 환경에서 예상하지 않은
+skip이 생기면 실패로 취급한다.
 
 ### 17.2 현재 headless smoke test
 
@@ -869,13 +934,16 @@ commit을 Linux에서도 실행한다.
 1. CFG-09, GRD-03, GRD-07, PLN-10처럼 잘못된 입력과 장애물 내부 목표 시험
 2. SIM-05, SIM-06, SIM-08, SIM-16처럼 정지·경계·timeout 시험
 3. MRP-05, SCN-N03~N07의 6대 연속거리·교착 시험
-4. adapter 직렬화, loopback UDP, disabled drone 시험
-5. server의 stop/reset/replan/동시 조회 시험
-6. seed generator, 구조화 로그와 replay
-7. 관측·통신 고장 주입과 500ms watchdog
-8. 차동구동·미끄러짐·swept collision
-9. 실제 카메라와 ESP32 HIL
-10. 규정 허용 후 드론 실물 시험
+4. 완료된 단일 프레임 AprilTag 관측을 다중 프레임 추적 상태로 연결
+5. 관측·통신 고장 주입과 500ms 안전정지/watchdog
+6. 고정 카메라 2대 timestamp 정렬·관측 융합과 단절 전환
+7. adapter 직렬화, loopback UDP, disabled drone 시험
+8. server의 stop/reset/replan/동시 조회 시험
+9. seed generator, 구조화 로그와 replay
+10. 차동구동·미끄러짐·swept collision
+11. 실물 카메라에서 렌즈·태그 높이·위치·방향·지연 측정과 ESP32 HIL
+12. 대회 임무상 필요성이 확정되면 HSV 모듈과 독립 데이터셋 시험
+13. 규정 허용 후 드론 실물 시험
 
 ## 19. 최종 판정 원칙
 
@@ -889,12 +957,18 @@ commit을 Linux에서도 실행한다.
   원형 근사는 실제 126×100mm 회전 차체에 보수적이지 않다.
 - 소프트웨어 긴급정지가 추가 이동을 막는다.
 - 최소 HTTP 관제 API가 동작한다.
+- USB/stream/영상 입력 경계, 4점 경기장 보정, frame freshness gate와 4대
+  AprilTag 단일 프레임 관측이 구현되어 소프트웨어 생성 이미지·녹화 파일
+  회귀시험을 통과한다.
 
 아직 말할 수 없는 범위는 다음과 같다.
 
 - 모든 6대 배치에서 교착과 충돌이 없다.
 - 모든 배치와 실제 경로에서 최소거리 0.138m가 연속시간 전체에 유지된다.
 - 추적 또는 통신이 500ms 끊기면 실제 로봇이 정지한다.
+- 여러 프레임의 관측이 안정적으로 추적·필터링·재획득된다.
+- HSV로 경기 물체를 인식하거나 고정 카메라 2대 관측을 동기화·융합한다.
+- 렌즈 왜곡과 태그 장착 높이가 보정되어 목표 위치·방향 정확도를 만족한다.
 - 120초 실제 경기에서 목표점수를 안정적으로 얻는다.
 - 실제 카메라, ESP32, 모터 또는 드론이 안전하게 동작한다.
 
