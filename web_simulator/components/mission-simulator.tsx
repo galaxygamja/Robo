@@ -482,6 +482,7 @@ export default function MissionSimulator() {
         options: { signal: AbortSignal },
       ) => void | Promise<void>;
     };
+    if (legacy) return;
     const context = (document as Document & { modelContext?: Context })
       .modelContext;
     if (!context) return;
@@ -545,7 +546,7 @@ export default function MissionSimulator() {
       }
     });
     return () => controller.abort();
-  }, [reset]);
+  }, [reset, legacy]);
   const score = scoreWorld(world.items),
     selected = world.robots.find((r) => r.id === selectedId)!;
   const job = selected.jobs[selected.jobIndex];
