@@ -54,7 +54,9 @@ def run_headless(engine: SimulationEngine, step_s: float) -> int:
         if engine.status.value == "running" and engine.elapsed_s <= previous_elapsed_s:
             raise RuntimeError("headless simulation time did not advance")
     snapshot = engine.snapshot()
-    print(json.dumps(snapshot, ensure_ascii=False, indent=2))
+    # ASCII JSON escapes preserve Korean text even when Windows redirects
+    # stdout through a legacy code page. JSON readers restore the original text.
+    print(json.dumps(snapshot, ensure_ascii=True, indent=2))
     return 0 if snapshot["status"] == "completed" and snapshot["metrics"]["collision_count"] == 0 else 2
 
 

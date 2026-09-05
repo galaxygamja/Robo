@@ -4,7 +4,7 @@ import json
 import unittest
 from contextlib import redirect_stdout
 from dataclasses import replace
-from io import StringIO
+from io import BytesIO, StringIO, TextIOWrapper
 
 from robo_control.__main__ import run_headless
 from robo_control.config import load_config
@@ -64,6 +64,22 @@ class HeadlessTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "finite and positive"):
                     self.run_silently(engine, invalid)
                 self.assertEqual("ready", engine.status.value)
+
+    def test_headless_json_preserves_korean_on_legacy_stdout(self) -> None:
+        for encoding in ("ascii", "cp1252"):
+            with self.subTest(encoding=encoding):
+                engine = SimulationEngine(load_config())
+                expected_warnings = engine.snapshot()["warnings"]
+                buffer = BytesIO()
+                with TextIOWrapper(buffer, encoding=encoding) as output:
+                    with redirect_stdout(output):
+                        code = run_headless(engine, 0.05)
+                    output.flush()
+                    state = json.loads(buffer.getvalue().decode(encoding))
+                self.assertEqual(0, code)
+                self.assertEqual("completed", state["status"])
+                self.assertEqual(expected_warnings, state["warnings"])
+                self.assertTrue(any("실제" in warning for warning in state["warnings"]))
 
 
 if __name__ == "__main__":
