@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robo-control"
+version = "0.1.0"
+description = "Hardware-independent six-robot mission planner and simulator"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Robo Team" }]
+dependencies = []
+
+[project.optional-dependencies]
+vision = ["opencv-contrib-python>=4.10", "numpy>=2.0"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+robo-control = "robo_control.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["robo_control*"]
+
+[tool.setuptools.package-data]
+robo_control = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
