@@ -2,8 +2,48 @@ export const FIELD = {
   width: 1.143,
   height: 1.181,
   duration: 120,
-  startZone: { x: 0, y: 0.901, width: 0.48, height: 0.28 },
+  // 국제 룰북의 한 팀용 필드를 팀 진행 방향으로 세운 좌표계다.
+  // 원점은 아래쪽 왼쪽이며, 출발구역은 아래쪽 오른쪽에 있다.
+  startZone: { x: 0.663, y: 0, width: 0.48, height: 0.28 },
   safetyMargin: 0.015,
+} as const;
+
+export const OFFICIAL_LAYOUT = {
+  tapeWidth: 0.02,
+  healthcare: {
+    y: 0.981,
+    height: 0.2,
+    pccLeft: { x: 0, y: 1.001, width: 0.3, height: 0.18 },
+    hospital: { x: 0.32, y: 1.001, width: 0.503, height: 0.18 },
+    pccRight: { x: 0.843, y: 1.001, width: 0.3, height: 0.18 },
+  },
+  quarantine: { x: 0, y: 0, width: 0.28, height: 0.28 },
+  // 룰북 도면의 중앙 H형 20mm 테이프. 테이프는 장애물이 아니라 시각 기준선이다.
+  centerTape: [
+    { x: 0.3215, y: 0.831, width: 0.5, height: 0.02 },
+    { x: 0.5615, y: 0.431, width: 0.02, height: 0.42 },
+    { x: 0.3215, y: 0.431, width: 0.5, height: 0.02 },
+  ],
+  groundPoints: [
+    { x: 0.15, y: 0.731, color: '#eab308' },
+    { x: 0.25, y: 0.731, color: '#22c55e' },
+    { x: 0.35, y: 0.731, color: '#ef4444' },
+    { x: 0.15, y: 0.531, color: '#ef4444' },
+    { x: 0.25, y: 0.531, color: '#22c55e' },
+    { x: 0.35, y: 0.531, color: '#eab308' },
+    { x: 0.793, y: 0.731, color: '#ef4444' },
+    { x: 0.893, y: 0.731, color: '#22c55e' },
+    { x: 0.993, y: 0.731, color: '#eab308' },
+    { x: 0.793, y: 0.531, color: '#eab308' },
+    { x: 0.893, y: 0.531, color: '#22c55e' },
+    { x: 0.993, y: 0.531, color: '#ef4444' },
+  ],
+  // 실험실 구조의 정확한 장착 좌표는 한국 예선 첨부 도면 배포 후 확정한다.
+  laboratorySlots: [
+    { x: 0.38, y: 0.075 },
+    { x: 0.49, y: 0.075 },
+    { x: 0.6, y: 0.075 },
+  ],
 } as const;
 
 export const ROBOT = {
@@ -99,62 +139,60 @@ export function footprintForMode(mode: DriveMode): Point[] {
   return mode === 'mecanum' ? MECANUM_FOOTPRINT : FOOTPRINT;
 }
 
-export const OBSTACLES = [
-  { x: 0.5, y: 0.4, width: 0.14, height: 0.3, label: '임시 A' },
-  { x: 0.22, y: 0.5, width: 0.1, height: 0.12, label: '임시 B' },
-  { x: 0.84, y: 0.48, width: 0.1, height: 0.12, label: '임시 C' },
-] as const;
+// 공개 도면에서 검은 선은 20mm 테이프이며 통과할 수 있다. 한국 예선의
+// 실제 고정 구조물 배치(B-1/B-2/B-4)가 공개되기 전에는 장애물을 만들지 않는다.
+export const OBSTACLES: ReadonlyArray<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+}> = [];
 
 export const STARTS: Pose[] = [
-  { x: 0.094, y: 0.971, heading: Math.PI },
-  { x: 0.24, y: 0.971, heading: Math.PI },
-  { x: 0.386, y: 0.971, heading: Math.PI },
-  { x: 0.094, y: 1.111, heading: Math.PI },
-  { x: 0.24, y: 1.111, heading: Math.PI },
-  { x: 0.386, y: 1.111, heading: Math.PI },
+  { x: 0.75, y: 0.21, heading: 0 },
+  { x: 0.9, y: 0.21, heading: 0 },
+  { x: 1.05, y: 0.21, heading: 0 },
+  { x: 0.75, y: 0.07, heading: 0 },
+  { x: 0.9, y: 0.07, heading: 0 },
+  { x: 1.05, y: 0.07, heading: 0 },
 ];
 
-// 공식 고정 배치도는 아직 배포 전이므로, 아래 좌표는 알고리즘 확인용이다.
+// 국제 룰북의 의료구역을 목적지로 삼은 알고리즘 확인용 경로다. 한국 예선의
+// 고정 시작 위치와 물체 배치는 첨부 B-1/B-2/B-4 공개 뒤 다시 계산해야 한다.
 export const ROUTES: Point[][] = [
   [
-    { x: 0.094, y: 0.76 },
-    { x: 0.1, y: 0.18 },
+    { x: 0.75, y: 0.38 },
+    { x: 0.12, y: 0.38 },
+    { x: 0.12, y: 1.085 },
   ],
   [
-    { x: 0.24, y: 0.75 },
-    { x: 0.12, y: 0.69 },
-    { x: 0.12, y: 0.39 },
-    { x: 0.3, y: 0.27 },
-    { x: 0.3, y: 0.18 },
+    { x: 0.9, y: 0.45 },
+    { x: 0.27, y: 0.45 },
+    { x: 0.27, y: 1.085 },
   ],
   [
-    { x: 0.418, y: 0.76 },
-    { x: 0.418, y: 0.34 },
-    { x: 0.49, y: 0.23 },
-    { x: 0.49, y: 0.14 },
+    { x: 1.05, y: 0.52 },
+    { x: 0.48, y: 0.52 },
+    { x: 0.48, y: 1.085 },
   ],
   [
-    { x: 0.094, y: 0.8 },
-    { x: 0.755, y: 0.8 },
-    { x: 0.755, y: 0.32 },
-    { x: 0.68, y: 0.18 },
+    { x: 0.75, y: 0.6 },
+    { x: 0.65, y: 0.6 },
+    { x: 0.65, y: 1.085 },
   ],
   [
-    { x: 0.24, y: 0.84 },
-    { x: 0.74, y: 0.84 },
-    { x: 0.74, y: 0.35 },
-    { x: 0.856, y: 0.27 },
-    { x: 0.856, y: 0.18 },
+    { x: 0.9, y: 0.64 },
+    { x: 0.86, y: 1.085 },
   ],
   [
-    { x: 0.386, y: 0.88 },
-    { x: 1.04, y: 0.88 },
-    { x: 1.04, y: 0.31 },
+    { x: 1.05, y: 0.68 },
+    { x: 1.02, y: 1.085 },
   ],
 ];
 
 // 3×2 밀집 출발에서는 임의 회전/동시 이탈이 위험하므로 두 번째 줄은 순차 출발한다.
-const DEPARTURE_DELAYS = [0, 0.7, 1.4, 4.8, 14, 24];
+const DEPARTURE_DELAYS = [0, 4, 8, 15, 20, 25];
 
 export function createInitialRobots(): RobotState[] {
   return STARTS.map((pose, index) => ({
@@ -180,7 +218,10 @@ export function normalizeAngle(value: number): number {
   return angle;
 }
 
-export function transformFootprint(pose: Pose, mode: DriveMode = 'differential'): Point[] {
+export function transformFootprint(
+  pose: Pose,
+  mode: DriveMode = 'differential',
+): Point[] {
   const c = Math.cos(pose.heading);
   const s = Math.sin(pose.heading);
   return footprintForMode(mode).map((point) => ({
@@ -279,9 +320,14 @@ function footprintInsideField(poly: Point[]): boolean {
   );
 }
 
-export function minimumClearance(robots: RobotState[], mode: DriveMode = 'differential'): number {
+export function minimumClearance(
+  robots: RobotState[],
+  mode: DriveMode = 'differential',
+): number {
   let minimum = Infinity;
-  const footprints = robots.map((robot) => transformFootprint(robot.pose, mode));
+  const footprints = robots.map((robot) =>
+    transformFootprint(robot.pose, mode),
+  );
   for (let index = 0; index < footprints.length; index += 1) {
     const footprint = footprints[index];
     for (const point of footprint) {
@@ -300,7 +346,10 @@ export function minimumClearance(robots: RobotState[], mode: DriveMode = 'differ
       );
     }
     for (let other = index + 1; other < footprints.length; other += 1) {
-      minimum = Math.min(minimum, polygonDistance(footprint, footprints[other]));
+      minimum = Math.min(
+        minimum,
+        polygonDistance(footprint, footprints[other]),
+      );
     }
   }
   return Number.isFinite(minimum) ? minimum : 0;
@@ -352,9 +401,7 @@ export function mixMecanumCommand(
     Math.abs(raw.rr),
   );
   const scale =
-    rawPeak > ROBOT.maxLinearSpeed
-      ? ROBOT.maxLinearSpeed / rawPeak
-      : 1;
+    rawPeak > ROBOT.maxLinearSpeed ? ROBOT.maxLinearSpeed / rawPeak : 1;
   return {
     scale,
     wheels: {
@@ -380,9 +427,7 @@ function mixDifferentialCommand(vForward: number, omega: number) {
   const right = vForward + halfTrack * omega;
   const rawPeak = Math.max(Math.abs(left), Math.abs(right));
   const scale =
-    rawPeak > ROBOT.maxLinearSpeed
-      ? ROBOT.maxLinearSpeed / rawPeak
-      : 1;
+    rawPeak > ROBOT.maxLinearSpeed ? ROBOT.maxLinearSpeed / rawPeak : 1;
   return {
     scale,
     wheels: {
@@ -468,9 +513,7 @@ export function stepWorld(
       const cw = Number(keyPressed(keys, 'e'));
       vForward = (forward - reverse) * ROBOT.maxLinearSpeed;
       vLeft =
-        driveMode === 'mecanum'
-          ? (left - right) * ROBOT.maxLinearSpeed
-          : 0;
+        driveMode === 'mecanum' ? (left - right) * ROBOT.maxLinearSpeed : 0;
       omega = (ccw - cw) * ROBOT.maxAngularSpeed;
       status = 'manual';
     } else {

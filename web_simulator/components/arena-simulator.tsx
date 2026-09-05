@@ -14,16 +14,10 @@ import {
   ShieldCheck,
   StepForward,
 } from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FIELD,
-  OBSTACLES,
+  OFFICIAL_LAYOUT,
   ROBOT,
   ROUTES,
   type DriveMode,
@@ -118,16 +112,45 @@ function drawArena(
     x: ox + point.x * scale,
     y: oy + (FIELD.height - point.y) * scale,
   });
+  const fillWorldRect = (
+    worldRect: { x: number; y: number; width: number; height: number },
+    fill: string,
+  ) => {
+    const topLeft = toCanvas({
+      x: worldRect.x,
+      y: worldRect.y + worldRect.height,
+    });
+    ctx.fillStyle = fill;
+    ctx.fillRect(
+      topLeft.x,
+      topLeft.y,
+      worldRect.width * scale,
+      worldRect.height * scale,
+    );
+  };
+  const labelWorld = (
+    text: string,
+    point: Point,
+    color = '#111827',
+    size = 10,
+  ) => {
+    const p = toCanvas(point);
+    ctx.fillStyle = color;
+    ctx.font = `750 ${size}px ui-monospace, SFMono-Regular, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, p.x, p.y);
+  };
 
   ctx.save();
   ctx.shadowColor = 'rgba(1, 10, 20, .55)';
   ctx.shadowBlur = 24;
-  ctx.fillStyle = '#071522';
+  ctx.fillStyle = '#d9d7c9';
   ctx.fillRect(ox, oy, arenaWidth, arenaHeight);
   ctx.restore();
 
   if (options.showGrid) {
-    ctx.strokeStyle = 'rgba(148, 210, 229, .085)';
+    ctx.strokeStyle = 'rgba(30, 41, 59, .09)';
     ctx.lineWidth = 1;
     for (let x = 0.1; x < FIELD.width; x += 0.1) {
       const p = toCanvas({ x, y: 0 });
@@ -145,48 +168,73 @@ function drawArena(
     }
   }
 
-  const startTopLeft = toCanvas({
-    x: FIELD.startZone.x,
-    y: FIELD.startZone.y + FIELD.startZone.height,
-  });
-  ctx.fillStyle = 'rgba(52, 211, 153, .12)';
-  ctx.strokeStyle = 'rgba(52, 211, 153, .65)';
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([6, 5]);
-  ctx.fillRect(
-    startTopLeft.x,
-    startTopLeft.y,
-    FIELD.startZone.width * scale,
-    FIELD.startZone.height * scale,
-  );
-  ctx.strokeRect(
-    startTopLeft.x,
-    startTopLeft.y,
-    FIELD.startZone.width * scale,
-    FIELD.startZone.height * scale,
-  );
-  ctx.setLineDash([]);
-  ctx.fillStyle = '#6ee7b7';
-  ctx.font = '600 10px ui-monospace, SFMono-Regular, monospace';
-  ctx.fillText('START 480 × 280 mm', startTopLeft.x + 8, startTopLeft.y + 15);
+  // 국제 룰북 13~16쪽의 한 팀용 필드 선형. 검은 20mm 선은 통과 가능한 테이프다.
+  fillWorldRect(OFFICIAL_LAYOUT.healthcare.pccLeft, 'rgba(96, 165, 250, .19)');
+  fillWorldRect(OFFICIAL_LAYOUT.healthcare.hospital, 'rgba(248, 113, 113, .2)');
+  fillWorldRect(OFFICIAL_LAYOUT.healthcare.pccRight, 'rgba(96, 165, 250, .19)');
+  fillWorldRect(OFFICIAL_LAYOUT.quarantine, 'rgba(168, 85, 247, .12)');
+  fillWorldRect(FIELD.startZone, 'rgba(16, 185, 129, .14)');
 
-  for (const obstacle of OBSTACLES) {
-    const p = toCanvas({
-      x: obstacle.x,
-      y: obstacle.y + obstacle.height,
-    });
-    const width = obstacle.width * scale;
-    const height = obstacle.height * scale;
-    ctx.fillStyle = 'rgba(251, 113, 133, .14)';
-    ctx.strokeStyle = 'rgba(251, 113, 133, .72)';
-    ctx.setLineDash([4, 4]);
-    ctx.fillRect(p.x, p.y, width, height);
-    ctx.strokeRect(p.x, p.y, width, height);
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#fda4af';
-    ctx.font = '600 9px ui-monospace, SFMono-Regular, monospace';
-    ctx.fillText(obstacle.label, p.x + 6, p.y + 13);
-  }
+  const tape = '#171717';
+  fillWorldRect(
+    { x: 0, y: 0.981, width: FIELD.width, height: OFFICIAL_LAYOUT.tapeWidth },
+    tape,
+  );
+  fillWorldRect({ x: 0.3, y: 1.001, width: 0.02, height: 0.18 }, tape);
+  fillWorldRect({ x: 0.823, y: 1.001, width: 0.02, height: 0.18 }, tape);
+  OFFICIAL_LAYOUT.centerTape.forEach((segment) => fillWorldRect(segment, tape));
+  fillWorldRect({ x: 0, y: 0.28, width: 0.3, height: 0.02 }, tape);
+  fillWorldRect({ x: 0.28, y: 0, width: 0.02, height: 0.3 }, tape);
+  fillWorldRect({ x: 0.643, y: 0, width: 0.02, height: 0.3 }, tape);
+  fillWorldRect({ x: 0.643, y: 0.28, width: 0.5, height: 0.02 }, tape);
+
+  labelWorld('PCC', { x: 0.15, y: 1.145 }, '#1e3a8a', 11);
+  labelWorld('H', { x: 0.5715, y: 1.145 }, '#7f1d1d', 14);
+  labelWorld('PCC', { x: 0.993, y: 1.145 }, '#1e3a8a', 11);
+  labelWorld('격리구역', { x: 0.14, y: 0.245 }, '#581c87', 9);
+  labelWorld('START 480 × 280', { x: 0.903, y: 0.245 }, '#065f46', 9);
+
+  const rzTopLeft = toCanvas({ x: 0.69, y: 0.18 });
+  ctx.strokeStyle = 'rgba(5, 150, 105, .68)';
+  ctx.lineWidth = 1.3;
+  ctx.setLineDash([5, 4]);
+  ctx.strokeRect(rzTopLeft.x, rzTopLeft.y, 0.42 * scale, 0.13 * scale);
+  ctx.setLineDash([]);
+  labelWorld('RZ', { x: 0.9, y: 0.115 }, '#047857', 10);
+
+  OFFICIAL_LAYOUT.groundPoints.forEach((point) => {
+    const p = toCanvas(point);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(3.2, 0.01 * scale), 0, Math.PI * 2);
+    ctx.fillStyle = point.color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(15, 23, 42, .78)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  OFFICIAL_LAYOUT.laboratorySlots.forEach((point) => {
+    const p = toCanvas(point);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(5, 0.03 * scale), 0, Math.PI * 2);
+    ctx.fillStyle = '#ede9d5';
+    ctx.fill();
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  });
+  labelWorld('LAB · 좌표 잠정', { x: 0.49, y: 0.16 }, '#475569', 8);
+
+  [0.07, 0.14, 0.21].forEach((x) => {
+    const p = toCanvas({ x, y: 0.08 });
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(5, 0.028 * scale), 0, Math.PI * 2);
+    ctx.fillStyle = '#20252b';
+    ctx.fill();
+    ctx.strokeStyle = '#020617';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
 
   if (options.showRoutes) {
     ROUTES.forEach((route, index) => {
@@ -198,7 +246,7 @@ function drawArena(
         if (pointIndex === 0) ctx.moveTo(p.x, p.y);
         else ctx.lineTo(p.x, p.y);
       });
-      ctx.strokeStyle = `${robot.color}55`;
+      ctx.strokeStyle = `${robot.color}bb`;
       ctx.lineWidth = robot.id === selectedId ? 2 : 1;
       ctx.setLineDash([5, 7]);
       ctx.stroke();
@@ -210,7 +258,7 @@ function drawArena(
     const goal = toCanvas(route[route.length - 1]);
     ctx.beginPath();
     ctx.arc(goal.x, goal.y, Math.max(7, 0.018 * scale), 0, Math.PI * 2);
-    ctx.fillStyle = '#071522';
+    ctx.fillStyle = '#f8fafc';
     ctx.fill();
     ctx.strokeStyle = robots[index].color;
     ctx.lineWidth = 2;
@@ -290,7 +338,12 @@ function drawArena(
       const width = 0.012 * scale;
       const height = (driveMode === 'mecanum' ? 0.025 : 0.045) * scale;
       ctx.fillStyle = '#02070c';
-      ctx.fillRect(wx * scale - width / 2, -wy * scale - height / 2, width, height);
+      ctx.fillRect(
+        wx * scale - width / 2,
+        -wy * scale - height / 2,
+        width,
+        height,
+      );
       if (driveMode === 'mecanum') {
         ctx.strokeStyle = '#7dd3fc';
         ctx.lineWidth = 1;
@@ -334,8 +387,8 @@ function drawArena(
   }
   ctx.textAlign = 'start';
 
-  ctx.strokeStyle = '#477087';
-  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = '#8b6b3f';
+  ctx.lineWidth = Math.max(2, 0.012 * scale);
   ctx.strokeRect(ox, oy, arenaWidth, arenaHeight);
   ctx.fillStyle = '#7895a5';
   ctx.font = '600 10px ui-monospace, SFMono-Regular, monospace';
@@ -379,7 +432,10 @@ function WheelMeter({ label, value }: { label: string; value: number }) {
     <div className="wheel-meter">
       <div className="wheel-meter-label">
         <span>{label}</span>
-        <strong>{value >= 0 ? '+' : ''}{value.toFixed(2)}</strong>
+        <strong>
+          {value >= 0 ? '+' : ''}
+          {value.toFixed(2)}
+        </strong>
       </div>
       <div className="wheel-meter-track">
         <span
@@ -402,7 +458,12 @@ export default function ArenaSimulator() {
   const [elapsed, setElapsed] = useState(0);
   const elapsedRef = useRef(0);
   const [events, setEvents] = useState<SimEvent[]>([
-    { id: 1, time: 0, level: 'info', text: '시뮬레이터 준비 완료 · 자동 출력 없음' },
+    {
+      id: 1,
+      time: 0,
+      level: 'info',
+      text: '시뮬레이터 준비 완료 · 자동 출력 없음',
+    },
   ]);
   const eventId = useRef(2);
   const keys = useRef(new Set<string>());
@@ -432,7 +493,10 @@ export default function ArenaSimulator() {
       const accumulatedEvents: Omit<SimEvent, 'id'>[] = [];
       for (let index = 0; index < count; index += 1) {
         if (elapsedRef.current >= FIELD.duration) break;
-        elapsedRef.current = Math.min(FIELD.duration, elapsedRef.current + FIXED_DT);
+        elapsedRef.current = Math.min(
+          FIELD.duration,
+          elapsedRef.current + FIXED_DT,
+        );
         const result = stepWorld(
           working,
           FIXED_DT,
@@ -487,7 +551,20 @@ export default function ArenaSimulator() {
       const tag = (event.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       const key = event.key.toLowerCase();
-      if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
+      if (
+        [
+          'w',
+          'a',
+          's',
+          'd',
+          'q',
+          'e',
+          'arrowup',
+          'arrowdown',
+          'arrowleft',
+          'arrowright',
+        ].includes(key)
+      ) {
         pressedKeys.add(key);
         event.preventDefault();
       }
@@ -496,7 +573,8 @@ export default function ArenaSimulator() {
         event.preventDefault();
       }
     };
-    const up = (event: KeyboardEvent) => pressedKeys.delete(event.key.toLowerCase());
+    const up = (event: KeyboardEvent) =>
+      pressedKeys.delete(event.key.toLowerCase());
     const clearKeys = () => pressedKeys.clear();
     const clearHiddenKeys = () => {
       if (document.hidden) pressedKeys.clear();
@@ -528,7 +606,15 @@ export default function ArenaSimulator() {
     const observer = new ResizeObserver(redraw);
     if (canvas.parentElement) observer.observe(canvas.parentElement);
     return () => observer.disconnect();
-  }, [driveMode, robots, selectedId, showGrid, showRoutes, showSafety, showTrails]);
+  }, [
+    driveMode,
+    robots,
+    selectedId,
+    showGrid,
+    showRoutes,
+    showSafety,
+    showTrails,
+  ]);
 
   const reset = useCallback(() => {
     const initial = createInitialRobots();
@@ -564,7 +650,10 @@ export default function ArenaSimulator() {
         id: eventId.current++,
         time: 0,
         level: 'info',
-        text: value === 'mecanum' ? '메카넘 개조안 선택' : '현재 SCAD 차동구동 선택',
+        text:
+          value === 'mecanum'
+            ? '메카넘 개조안 선택'
+            : '현재 SCAD 차동구동 선택',
       },
     ]);
   }, []);
@@ -592,7 +681,11 @@ export default function ArenaSimulator() {
       name: 'read_simulation_state',
       title: '시뮬레이션 상태 읽기',
       description: '현재 경기 시간, 구동 모델, 로봇별 위치와 상태를 읽습니다.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
       annotations: { readOnlyHint: true, untrustedContentHint: false },
       execute: () => ({
         elapsedSeconds: Number(elapsedRef.current.toFixed(2)),
@@ -611,7 +704,11 @@ export default function ArenaSimulator() {
       name: 'start_route_replay',
       title: '자동 경로 재생 시작',
       description: '화면의 자동 경로 재생을 현재 위치에서 시작합니다.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute: async () => {
         setManual(false);
@@ -624,19 +721,31 @@ export default function ArenaSimulator() {
       name: 'pause_simulation',
       title: '시뮬레이션 일시정지',
       description: '자동 또는 수동 시뮬레이션 시간을 일시정지합니다.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute: async () => {
         setRunning(false);
         await afterVisibleUpdate();
-        return { running: false, elapsedSeconds: Number(elapsedRef.current.toFixed(2)) };
+        return {
+          running: false,
+          elapsedSeconds: Number(elapsedRef.current.toFixed(2)),
+        };
       },
     });
     register({
       name: 'reset_simulation',
       title: '시뮬레이션 초기화',
-      description: '6대 로봇과 경기 시간을 선택한 구동 모델의 시작 상태로 되돌립니다.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      description:
+        '6대 로봇과 경기 시간을 선택한 구동 모델의 시작 상태로 되돌립니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute: async () => {
         reset();
@@ -647,7 +756,8 @@ export default function ArenaSimulator() {
     register({
       name: 'set_drive_model',
       title: '구동 모델 설정',
-      description: '메카넘 개조안 또는 현재 SCAD 차동구동 모델로 바꾸고 초기화합니다.',
+      description:
+        '메카넘 개조안 또는 현재 SCAD 차동구동 모델로 바꾸고 초기화합니다.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -689,21 +799,27 @@ export default function ArenaSimulator() {
   );
 
   const clearance = minimumClearance(robots, driveMode);
-  const completed = robots.filter((robot) => robot.status === 'complete').length;
+  const completed = robots.filter(
+    (robot) => robot.status === 'complete',
+  ).length;
   const blocked = robots.filter((robot) => robot.status === 'blocked').length;
 
   return (
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-block">
-          <div className="brand-mark"><Bot size={19} /></div>
+          <div className="brand-mark">
+            <Bot size={19} />
+          </div>
           <div>
-            <p className="eyebrow">ROBO CONTROL LAB · WEB SIM v0.2</p>
+            <p className="eyebrow">ROBO CONTROL LAB · WEB SIM v0.3</p>
             <h1>6대 로봇 경기 시뮬레이터</h1>
           </div>
         </div>
         <div className="header-pills">
-          <span><i className="status-dot" /> 브라우저 로컬 연산</span>
+          <span>
+            <i className="status-dot" /> 브라우저 로컬 연산
+          </span>
           <span>실장치 출력 없음</span>
         </div>
       </header>
@@ -715,12 +831,16 @@ export default function ArenaSimulator() {
         </div>
         <div className="metric">
           <span>진행률</span>
-          <strong>{completed}<small>/6</small></strong>
+          <strong>
+            {completed}
+            <small>/6</small>
+          </strong>
         </div>
         <div className="metric">
           <span>최소 간격</span>
           <strong className={clearance < FIELD.safetyMargin ? 'danger' : ''}>
-            {Math.round(clearance * 1000)}<small> mm</small>
+            {Math.round(clearance * 1000)}
+            <small> mm</small>
           </strong>
         </div>
         <div className="metric">
@@ -729,7 +849,9 @@ export default function ArenaSimulator() {
         </div>
         <div className="metric mode-metric">
           <span>구동 모델</span>
-          <strong>{driveMode === 'mecanum' ? 'MECANUM' : 'DIFFERENTIAL'}</strong>
+          <strong>
+            {driveMode === 'mecanum' ? 'MECANUM' : 'DIFFERENTIAL'}
+          </strong>
         </div>
       </section>
 
@@ -738,12 +860,21 @@ export default function ArenaSimulator() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">FIELD / TRUE SCALE</p>
-              <h2>예선 경기장 평면</h2>
+              <h2>국제 룰북 기준 · 한 팀용 경기장</h2>
             </div>
             <div className="legend">
-              <span><i className="legend-start" /> 출발구역</span>
-              <span><i className="legend-obstacle" /> 임시 배치</span>
-              <span><i className="legend-route" /> 계획 경로</span>
+              <span>
+                <i className="legend-start" /> 출발/RZ
+              </span>
+              <span>
+                <i className="legend-tape" /> 20mm 테이프
+              </span>
+              <span>
+                <i className="legend-patient" /> 환자 위치
+              </span>
+              <span>
+                <i className="legend-route" /> 계획 경로
+              </span>
             </div>
           </div>
           <div className="canvas-wrap">
@@ -752,8 +883,17 @@ export default function ArenaSimulator() {
           <div className="arena-caption">
             <Info size={14} />
             <span>
-              경기장·출발구역은 공개된 규격값. 붉은 장애물과 목표 위치는 공식 B-1/B-2 배포 전 검증용 임시 좌표입니다.
+              국제 룰북 13~16쪽의 필드 선형·구역을 반영했습니다. 한국 예선
+              B-1/B-2/B-4 고정 배치도는 아직 미공개이므로 LAB 좌표, 6대 시작점과
+              자동 경로는 검증용 잠정값입니다.
             </span>
+            <a
+              href="https://robotics-2026.web.app/resources"
+              target="_blank"
+              rel="noreferrer"
+            >
+              공식 자료실 <ExternalLink size={11} />
+            </a>
           </div>
         </div>
 
@@ -786,7 +926,7 @@ export default function ArenaSimulator() {
             <p className="mode-note">
               {driveMode === 'mecanum'
                 ? '4개 휠을 독립 구동해 차체 방향을 유지한 채 좌우 이동합니다.'
-                : '2개 구동륜 + 캐스터로 같은 메카넘용 임시 경로를 재생합니다. 회전 공간 부족에 따른 안전정지는 의도된 비교 결과입니다.'}
+                : '2개 구동륜 + 캐스터로 같은 잠정 경로를 재생합니다. 횡이동 대신 매 구간에서 차체 방향을 돌립니다.'}
             </p>
 
             <div className="primary-controls">
@@ -805,7 +945,12 @@ export default function ArenaSimulator() {
                 {running && !manual ? <Pause size={17} /> : <Play size={17} />}
                 {running && !manual ? '일시정지' : '자동 경로 시작'}
               </button>
-              <button type="button" className="icon-control" onClick={reset} aria-label="초기화">
+              <button
+                type="button"
+                className="icon-control"
+                onClick={reset}
+                aria-label="초기화"
+              >
                 <RotateCcw size={17} />
               </button>
               <button
@@ -820,7 +965,9 @@ export default function ArenaSimulator() {
             </div>
 
             <div className="speed-row">
-              <span><Gauge size={14} /> 재생 속도</span>
+              <span>
+                <Gauge size={14} /> 재생 속도
+              </span>
               <div>
                 {[0.25, 0.5, 1, 2, 4].map((value) => (
                   <button
@@ -835,10 +982,26 @@ export default function ArenaSimulator() {
               </div>
             </div>
             <div className="view-options">
-              <Toggle checked={showGrid} onChange={setShowGrid} label="100mm 격자" />
-              <Toggle checked={showRoutes} onChange={setShowRoutes} label="계획 경로" />
-              <Toggle checked={showTrails} onChange={setShowTrails} label="주행 궤적" />
-              <Toggle checked={showSafety} onChange={setShowSafety} label="회전 안전원" />
+              <Toggle
+                checked={showGrid}
+                onChange={setShowGrid}
+                label="100mm 격자"
+              />
+              <Toggle
+                checked={showRoutes}
+                onChange={setShowRoutes}
+                label="계획 경로"
+              />
+              <Toggle
+                checked={showTrails}
+                onChange={setShowTrails}
+                label="주행 궤적"
+              />
+              <Toggle
+                checked={showSafety}
+                onChange={setShowSafety}
+                label="회전 안전원"
+              />
             </div>
           </section>
 
@@ -861,16 +1024,32 @@ export default function ArenaSimulator() {
                     keys.current.clear();
                     setSelectedId(robot.id);
                   }}
-                  style={{ '--robot-color': robot.color } as React.CSSProperties}
+                  style={
+                    { '--robot-color': robot.color } as React.CSSProperties
+                  }
                 >
                   {robot.id}
                 </button>
               ))}
             </fieldset>
             <div className="robot-readout">
-              <div><span>상태</span><strong>{statusLabel(selected.status)}</strong></div>
-              <div><span>X / Y</span><strong>{Math.round(selected.pose.x * 1000)} / {Math.round(selected.pose.y * 1000)} mm</strong></div>
-              <div><span>방향</span><strong>{Math.round((selected.pose.heading * 180) / Math.PI)}°</strong></div>
+              <div>
+                <span>상태</span>
+                <strong>{statusLabel(selected.status)}</strong>
+              </div>
+              <div>
+                <span>X / Y</span>
+                <strong>
+                  {Math.round(selected.pose.x * 1000)} /{' '}
+                  {Math.round(selected.pose.y * 1000)} mm
+                </strong>
+              </div>
+              <div>
+                <span>방향</span>
+                <strong>
+                  {Math.round((selected.pose.heading * 180) / Math.PI)}°
+                </strong>
+              </div>
             </div>
             <button
               type="button"
@@ -882,7 +1061,8 @@ export default function ArenaSimulator() {
                 setRunning(true);
               }}
             >
-              <Gamepad2 size={15} /> {manual ? '수동 제어 중' : '수동 제어 켜기'}
+              <Gamepad2 size={15} />{' '}
+              {manual ? '수동 제어 중' : '수동 제어 켜기'}
             </button>
             <div className="keypad" aria-label="수동 이동 버튼">
               {[
@@ -901,14 +1081,20 @@ export default function ArenaSimulator() {
                   onPointerUp={releaseDriveKey}
                   onPointerCancel={releaseDriveKey}
                   onPointerLeave={releaseDriveKey}
-                  disabled={driveMode !== 'mecanum' && (key === 'a' || key === 'd')}
+                  disabled={
+                    driveMode !== 'mecanum' && (key === 'a' || key === 'd')
+                  }
                 >
-                  {main}<small>{sub}</small>
+                  {main}
+                  <small>{sub}</small>
                 </button>
               ))}
             </div>
             {driveMode === 'differential' && (
-              <p className="inline-warning"><AlertTriangle size={13} /> 현재 구조에서 A/D 횡이동은 불가능합니다.</p>
+              <p className="inline-warning">
+                <AlertTriangle size={13} /> 현재 구조에서 A/D 횡이동은
+                불가능합니다.
+              </p>
             )}
           </section>
 
@@ -925,7 +1111,9 @@ export default function ArenaSimulator() {
               <WheelMeter label="RL" value={selected.wheels.rl} />
               <WheelMeter label="RR" value={selected.wheels.rr} />
             </div>
-            <p className="fine-print">+는 기준 정회전, −는 역회전. 실기 부호는 배선 확인 후 보정합니다.</p>
+            <p className="fine-print">
+              +는 기준 정회전, −는 역회전. 실기 부호는 배선 확인 후 보정합니다.
+            </p>
           </section>
         </aside>
       </section>
@@ -940,13 +1128,31 @@ export default function ArenaSimulator() {
             <ShieldCheck size={19} />
           </div>
           <div className="spec-grid">
-            <article><span>경기장 명목치</span><strong>1,143 × 1,181</strong><small>mm · 최신 공차 재확인</small></article>
-            <article><span>SCAD 명목 운용 외형</span><strong>126 × 100 × 100</strong><small>mm</small></article>
-            <article><span>출발구역</span><strong>480 × 280</strong><small>mm</small></article>
-            <article><span>선택 안전원</span><strong>Ø 162</strong><small>mm</small></article>
+            <article>
+              <span>국제 1개 필드</span>
+              <strong>1,143 × 1,181</strong>
+              <small>mm · 팀 진행 방향 기준</small>
+            </article>
+            <article>
+              <span>SCAD 명목 운용 외형</span>
+              <strong>126 × 100 × 100</strong>
+              <small>mm</small>
+            </article>
+            <article>
+              <span>출발구역</span>
+              <strong>480 × 280</strong>
+              <small>mm</small>
+            </article>
+            <article>
+              <span>선택 안전원</span>
+              <strong>Ø 162</strong>
+              <small>mm</small>
+            </article>
           </div>
           <p className="panel-footnote">
-            차동구동은 SCAD 외형을, 메카넘은 앞뒤 휠 4개까지 감싼 8각형을 사용해 100Hz로 간격을 검사합니다. 연속 swept 충돌은 모델링하지 않으며, 출력·조립 뒤 실측 보정이 필요합니다.
+            차동구동은 SCAD 외형을, 메카넘은 앞뒤 휠 4개까지 감싼 8각형을 사용해
+            100Hz로 간격을 검사합니다. 연속 swept 충돌은 모델링하지 않으며,
+            출력·조립 뒤 실측 보정이 필요합니다.
           </p>
         </div>
 
@@ -962,7 +1168,11 @@ export default function ArenaSimulator() {
             <caption className="sr-only">메카넘 바퀴 회전 조합</caption>
             <thead>
               <tr className="movement-head">
-                <th>명령</th><th>FL</th><th>FR</th><th>RL</th><th>RR</th>
+                <th>명령</th>
+                <th>FL</th>
+                <th>FR</th>
+                <th>RL</th>
+                <th>RR</th>
               </tr>
             </thead>
             <tbody>
@@ -974,17 +1184,22 @@ export default function ArenaSimulator() {
                 ['반시계', '−', '+', '−', '+'],
               ].map((row) => (
                 <tr className="movement-row" key={row[0]}>
-                  {row.map((cell, index) => (
-                    index === 0
-                      ? <th scope="row" key={`${row[0]}-${index}`}>{cell}</th>
-                      : <td key={`${row[0]}-${index}`}>{cell}</td>
-                  ))}
+                  {row.map((cell, index) =>
+                    index === 0 ? (
+                      <th scope="row" key={`${row[0]}-${index}`}>
+                        {cell}
+                      </th>
+                    ) : (
+                      <td key={`${row[0]}-${index}`}>{cell}</td>
+                    ),
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="panel-footnote">
-            사선 롤러가 만드는 힘을 네 바퀴에서 합성합니다. 정석 제어에는 바퀴별 양방향 모터 4채널, 엔코더 PID, IMU 방향 보정이 필요합니다.
+            사선 롤러가 만드는 힘을 네 바퀴에서 합성합니다. 정석 제어에는 바퀴별
+            양방향 모터 4채널, 엔코더 PID, IMU 방향 보정이 필요합니다.
           </p>
         </div>
 
@@ -1011,14 +1226,26 @@ export default function ArenaSimulator() {
           <p className="eyebrow">RC CAR TEARDOWN DECISION</p>
           <h2>쿠팡 RC카에서 가져올 것은 차체가 아니라 ‘메카넘 구동 원리’</h2>
           <p>
-            상품 사진과 주행 설명은 사선 롤러 4륜의 메카넘형 구조와 일치합니다. 하지만 공개 정보만으로 바퀴별 독립 모터, 모터 전압, 스톨 전류, 엔코더 유무는 확정할 수 없습니다. 36×17cm급 동일 외형 제품은 이 경기장과 현재 126×100mm 로봇에는 너무 크므로, 휠 배열과 제어식을 소형 CAD에 다시 설계하는 편이 맞습니다.
+            상품 사진과 주행 설명은 사선 롤러 4륜의 메카넘형 구조와 일치합니다.
+            하지만 공개 정보만으로 바퀴별 독립 모터, 모터 전압, 스톨 전류,
+            엔코더 유무는 확정할 수 없습니다. 36×17cm급 동일 외형 제품은 이
+            경기장과 현재 126×100mm 로봇에는 너무 크므로, 휠 배열과 제어식을
+            소형 CAD에 다시 설계하는 편이 맞습니다.
           </p>
         </div>
         <div className="decision-list">
-          <span><b>1</b> X자 방향 메카넘 휠 4개</span>
-          <span><b>2</b> DC 모터 4개 + 4채널 양방향 드라이버</span>
-          <span><b>3</b> ESP32 1개, 엔코더 4개, IMU 1개</span>
-          <span><b>4</b> 상부 카메라 x/y/yaw 폐루프 보정</span>
+          <span>
+            <b>1</b> X자 방향 메카넘 휠 4개
+          </span>
+          <span>
+            <b>2</b> DC 모터 4개 + 4채널 양방향 드라이버
+          </span>
+          <span>
+            <b>3</b> ESP32 1개, 엔코더 4개, IMU 1개
+          </span>
+          <span>
+            <b>4</b> 상부 카메라 x/y/yaw 폐루프 보정
+          </span>
         </div>
         <a
           href="https://www.coupang.com/vp/products/9483204917"
@@ -1031,7 +1258,10 @@ export default function ArenaSimulator() {
       </section>
 
       <footer>
-        <span>Robo Control Lab · deterministic 100 Hz browser model</span>
+        <span>
+          Robo Control Lab · official international field reference · 100 Hz
+          model
+        </span>
         <span>실물 연결 전: 치수 실측 → 1대 HIL → 2대 교차 → 6대 순서</span>
       </footer>
     </main>

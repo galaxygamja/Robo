@@ -29,10 +29,19 @@ body {
   margin: 0;
   color: var(--ink);
   background:
-    radial-gradient(circle at 18% -10%, rgba(34, 211, 238, 0.11), transparent 32rem),
-    radial-gradient(circle at 92% 12%, rgba(59, 130, 246, 0.09), transparent 28rem),
+    radial-gradient(
+      circle at 18% -10%,
+      rgba(34, 211, 238, 0.11),
+      transparent 32rem
+    ),
+    radial-gradient(
+      circle at 92% 12%,
+      rgba(59, 130, 246, 0.09),
+      transparent 28rem
+    ),
     #020a11;
-  font-family: var(--font-geist-sans), Pretendard, 'Noto Sans KR', Arial, sans-serif;
+  font-family:
+    var(--font-geist-sans), Pretendard, 'Noto Sans KR', Arial, sans-serif;
 }
 
 button,
@@ -269,9 +278,20 @@ h2 {
   background: rgba(52, 211, 153, 0.18);
 }
 
-.legend-obstacle {
-  border: 1px solid #fb7185;
-  background: rgba(251, 113, 133, 0.18);
+.legend-tape {
+  border: 1px solid #94a3b8;
+  background: #171717;
+}
+
+.legend-patient {
+  border: 1px solid #eab308;
+  border-radius: 50% !important;
+  background: linear-gradient(
+    135deg,
+    #ef4444 0 33%,
+    #eab308 33% 66%,
+    #22c55e 66%
+  );
 }
 
 .legend-route {
@@ -311,6 +331,22 @@ h2 {
 .arena-caption svg {
   flex: 0 0 auto;
   color: var(--amber);
+}
+
+.arena-caption a {
+  min-height: 24px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: #9bd9e2;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.arena-caption a:hover {
+  color: var(--cyan);
 }
 
 .control-column {

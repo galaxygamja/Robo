@@ -4,6 +4,7 @@ import {
   FIELD,
   FOOTPRINT,
   MECANUM_FOOTPRINT,
+  OFFICIAL_LAYOUT,
   ROUTES,
   createInitialRobots,
   minimumClearance,
@@ -34,9 +35,32 @@ void test('all six fixed-heading starts fit without overlap', () => {
   }
   for (let index = 0; index < footprints.length; index += 1) {
     for (let other = index + 1; other < footprints.length; other += 1) {
-      assert.equal(polygonsOverlap(footprints[index], footprints[other]), false);
+      assert.equal(
+        polygonsOverlap(footprints[index], footprints[other]),
+        false,
+      );
     }
   }
+});
+
+void test('official reference geometry keeps the 480 by 280 mm start at lower right', () => {
+  assert.equal(FIELD.width, 1.143);
+  assert.equal(FIELD.height, 1.181);
+  assert.deepEqual(FIELD.startZone, {
+    x: 0.663,
+    y: 0,
+    width: 0.48,
+    height: 0.28,
+  });
+  assert.equal(OFFICIAL_LAYOUT.groundPoints.length, 12);
+  assert.equal(
+    OFFICIAL_LAYOUT.healthcare.pccLeft.width +
+      OFFICIAL_LAYOUT.tapeWidth +
+      OFFICIAL_LAYOUT.healthcare.hospital.width +
+      OFFICIAL_LAYOUT.tapeWidth +
+      OFFICIAL_LAYOUT.healthcare.pccRight.width,
+    FIELD.width,
+  );
 });
 
 void test('mecanum mixer produces the intended cardinal patterns', () => {
@@ -95,23 +119,6 @@ void test('the 15 mm wall margin stops a manual command before contact', () => {
   assert.deepEqual(result.robots[0].pose, robot.pose);
 });
 
-void test('the 15 mm obstacle margin stops a manual command before contact', () => {
-  const robot = createInitialRobots()[0];
-  robot.pose = { x: 0.422, y: 0.55, heading: 0 };
-  robot.status = 'manual';
-  const result = stepWorld(
-    [robot],
-    0.01,
-    1,
-    'mecanum',
-    true,
-    robot.id,
-    new Set(['d']),
-  );
-  assert.equal(result.robots[0].status, 'blocked');
-  assert.deepEqual(result.robots[0].pose, robot.pose);
-});
-
 void test('the 15 mm robot margin stops a pair before contact', () => {
   const [moving, parked] = createInitialRobots();
   moving.pose = { x: 0.4, y: 0.8, heading: 0 };
@@ -152,16 +159,14 @@ void test('combined mecanum commands desaturate wheel and body motion together',
   ).robots[0];
   assert.ok(Math.abs(moved.pose.x - robot.pose.x) < 1e-12);
   assert.ok(
-    Math.abs(moved.pose.y - (robot.pose.y + 0.18 * mixed.scale * 0.01)) <
-      1e-12,
+    Math.abs(moved.pose.y - (robot.pose.y + 0.18 * mixed.scale * 0.01)) < 1e-12,
   );
-  assert.ok(
-    Math.abs(moved.pose.heading - 2.4 * mixed.scale * 0.01) < 1e-12,
-  );
+  assert.ok(Math.abs(moved.pose.heading - 2.4 * mixed.scale * 0.01) < 1e-12);
 });
 
-void test('differential replay visibly demonstrates rotation-space stops', () => {
+void test('differential replay of the reference routes also completes safely', () => {
   let robots = createInitialRobots();
+  let closest = Infinity;
   for (let tick = 1; tick <= FIELD.duration * 100; tick += 1) {
     robots = stepWorld(
       robots,
@@ -172,9 +177,10 @@ void test('differential replay visibly demonstrates rotation-space stops', () =>
       'R1',
       new Set(),
     ).robots;
+    closest = Math.min(closest, minimumClearance(robots, 'differential'));
   }
-  assert.ok(robots.some((robot) => robot.status === 'blocked'));
-  assert.ok(robots.some((robot) => robot.status === 'complete'));
+  assert.equal(robots.filter((robot) => robot.status === 'complete').length, 6);
+  assert.ok(closest >= FIELD.safetyMargin - 1e-9);
 });
 
 void test('the provisional six-route replay stays collision-free and completes', () => {
@@ -211,8 +217,10 @@ void test('mecanum collision footprint includes all four rendered wheel corners'
           // Every edge of this counter-clockwise hull must contain the corner.
           MECANUM_FOOTPRINT.forEach((a, i) => {
             const b = MECANUM_FOOTPRINT[(i + 1) % MECANUM_FOOTPRINT.length];
-            assert.ok((b.x - a.x) * (corner.y - a.y) -
-              (b.y - a.y) * (corner.x - a.x) >= -1e-12);
+            assert.ok(
+              (b.x - a.x) * (corner.y - a.y) - (b.y - a.y) * (corner.x - a.x) >=
+                -1e-12,
+            );
           });
         }
       }
@@ -232,7 +240,10 @@ void test('world does not advance after the 120 second limit', () => {
     new Set(),
   ).robots;
   // The world itself freezes pose and clears every motor output at the deadline.
-  assert.deepEqual(robots.map((robot) => robot.pose), after.map((robot) => robot.pose));
+  assert.deepEqual(
+    robots.map((robot) => robot.pose),
+    after.map((robot) => robot.pose),
+  );
   after.forEach((robot) => {
     assert.deepEqual(robot.wheels, { fl: 0, fr: 0, rl: 0, rr: 0 });
   });
