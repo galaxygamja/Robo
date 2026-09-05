@@ -242,6 +242,31 @@
 .map-robot {
   cursor: pointer;
 }
+.fixed-camera-layer > path {
+  fill: none;
+  stroke: #0e7490;
+  stroke-width: 2px;
+  stroke-dasharray: 10 10;
+  opacity: 0.38;
+}
+.fixed-camera-layer rect,
+.fixed-camera-layer > g > path {
+  fill: #164e63;
+  stroke: #67e8f9;
+  stroke-width: 2px;
+}
+.fixed-camera-layer circle {
+  fill: #cffafe;
+  stroke: #0e7490;
+  stroke-width: 2px;
+}
+.fixed-camera-layer text {
+  fill: #a5f3fc;
+  font:
+    700 17px var(--font-geist-mono),
+    monospace;
+  text-anchor: middle;
+}
 .map-footnote {
   border-top: 1px solid #263e4d;
   display: flex;
@@ -474,8 +499,7 @@
 .inspector-card .sensor-on {
   color: #6ee7b7;
 }
-.test-fault,
-.bat-toggle {
+.test-fault {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -483,6 +507,46 @@
   line-height: 1.4;
   color: #b0c5d2;
   margin-top: 12px;
+}
+.observer-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.observer-mode button {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #304b5d;
+  border-radius: 8px;
+  background: #091a26;
+  color: #91aaba;
+  cursor: pointer;
+  text-align: left;
+}
+.observer-mode button[aria-pressed='true'] {
+  border-color: #4bd2c0;
+  background: #123b3a;
+  color: #d8fff6;
+}
+.observer-mode button > span {
+  min-width: 0;
+}
+.observer-mode strong,
+.observer-mode small {
+  display: block;
+}
+.observer-mode strong {
+  font-size: 12px;
+  line-height: 1.25;
+}
+.observer-mode small {
+  margin-top: 4px;
+  color: #83a0b2;
+  font-size: 11px;
+  line-height: 1.25;
 }
 .fault-message {
   font-size: 12px;

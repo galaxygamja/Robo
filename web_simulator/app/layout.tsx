@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Robo 구조팀 · 햄스터·비버·박쥐 예선 시뮬레이터',
+  title: 'Robo 구조팀 · 드론 없이도 작동하는 예선 시뮬레이터',
   description:
-    '햄스터 2대, 비버 2대, 박쥐 1대의 디스크·색별 원기둥·의료키트 운반과 예선 최종 상태 채점 시뮬레이터',
+    '고정 카메라 2대를 기본으로 햄스터 2대와 비버 2대의 디스크·색별 원기둥·의료키트 운반을 모의하며, 박쥐 드론 모드도 비교할 수 있는 예선 시뮬레이터',
 };
 
 export default function RootLayout({

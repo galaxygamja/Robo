@@ -13,6 +13,7 @@ export { FIELD, OFFICIAL_LAYOUT };
 export type Kind = 'disc' | 'cylinder' | 'cube';
 export type PatientColor = 'red' | 'yellow' | 'green';
 export type ZoneId = 'H' | 'PCC-L' | 'PCC-R' | 'RZ';
+export type ObservationMode = 'fixed' | 'drone';
 export type Phase =
   | 'waiting'
   | 'to-pick'
@@ -83,13 +84,17 @@ export type World = {
   logs: LogEntry[];
   locks: Record<string, string>;
   faultRobot: string | null;
+  observer: {
+    mode: ObservationMode;
+    cameraCount: number;
+    frameAge: number;
+    lost: boolean;
+  };
   drone: {
     enabled: boolean;
     pose: Point;
     altitude: number;
     phase: 'ground' | 'takeoff' | 'hover' | 'hold';
-    frameAge: number;
-    lost: boolean;
   };
 };
 export const ZONES: Record<
@@ -167,7 +172,15 @@ const log = (world: World, text: string, level: LogEntry['level'] = 'info') => {
   world.logs.length = Math.min(80, world.logs.length);
 };
 
-export function createWorld(droneEnabled = true): World {
+export function createWorld(
+  observation: ObservationMode | boolean = 'fixed',
+): World {
+  const observationMode: ObservationMode =
+    typeof observation === 'boolean'
+      ? observation
+        ? 'drone'
+        : 'fixed'
+      : observation;
   const items: Item[] = [];
   const add = (
     id: string,
@@ -312,17 +325,24 @@ export function createWorld(droneEnabled = true): World {
     logs: [
       {
         time: 0,
-        text: 'Senior 예선 초안 · 디스크 3 / 큐브 4 / 색별 원기둥 3개 준비',
+        text:
+          observationMode === 'fixed'
+            ? '드론 없음 · 고정 카메라 2대 관측으로 지상팀 준비'
+            : '박쥐 드론 관측으로 지상팀 준비',
         level: 'info',
       },
     ],
+    observer: {
+      mode: observationMode,
+      cameraCount: observationMode === 'fixed' ? 2 : 1,
+      frameAge: 0,
+      lost: false,
+    },
     drone: {
-      enabled: droneEnabled,
+      enabled: observationMode === 'drone',
       pose: { x: 0.742, y: 0.14 },
       altitude: 0,
       phase: 'ground',
-      frameAge: 0,
-      lost: false,
     },
   };
 }
@@ -830,6 +850,14 @@ export function advance(world: World, dt: number = SPEC.dt): World {
     world.elapsed = FIELD.duration;
     return finish(world, '120초 종료 · 최종 배치 판정');
   }
+  const observer = world.observer;
+  observer.frameAge = observer.lost
+    ? observer.frameAge + step
+    : world.elapsed % 0.1;
+  if (observer.frameAge > 0.5) {
+    world.drone.phase = 'hold';
+    return world;
+  }
   const drone = world.drone;
   if (drone.enabled) {
     drone.altitude = Math.min(0.8, world.elapsed * 0.4);
@@ -839,15 +867,6 @@ export function advance(world: World, dt: number = SPEC.dt): World {
       x: 0.742 + (0.5715 - 0.742) * fraction,
       y: 0.14 + (0.61 - 0.14) * fraction,
     };
-    drone.frameAge = drone.lost
-      ? drone.frameAge + step
-      : world.elapsed < 3.5
-        ? 0
-        : world.elapsed % 0.1;
-    if (drone.frameAge > 0.5) {
-      drone.phase = 'hold';
-      return world;
-    }
   }
   for (const robot of world.robots) {
     if (robot.phase === 'fault' || robot.phase === 'complete') continue;

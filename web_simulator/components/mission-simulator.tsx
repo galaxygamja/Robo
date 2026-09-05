@@ -6,6 +6,7 @@ import {
   Pause,
   RotateCcw,
   Radio,
+  Camera,
   CheckCircle2,
   AlertTriangle,
   ChevronRight,
@@ -27,6 +28,7 @@ import {
   type World,
   type Item,
   type Robot,
+  type ObservationMode,
 } from '@/lib/mission';
 import ArenaSimulator from './arena-simulator';
 import './mission.css';
@@ -357,6 +359,25 @@ function FieldView({
               })
             : itemGlyph(item),
         )}
+      {world.observer.mode === 'fixed' && (
+        <g className="fixed-camera-layer">
+          <path d="M75 -18L410 610M1068 -18L733 610" />
+          {[
+            { id: 'CAM-1', x: 75 },
+            { id: 'CAM-2', x: 1068 },
+          ].map((camera) => (
+            <g key={camera.id} transform={`translate(${camera.x} -34)`}>
+              <title>
+                {camera.id} · 고정 카메라 관측 모의 · 경기장 장애물 아님
+              </title>
+              <rect x="-23" y="-14" width="38" height="28" rx="5" />
+              <path d="M15-8L29-15V15L15 8Z" />
+              <circle r="6" />
+              <text y="36">{camera.id}</text>
+            </g>
+          ))}
+        </g>
+      )}
       {world.drone.enabled && (
         <g
           transform={`translate(${px(world.drone.pose.x)} ${py(world.drone.pose.y)})`}
@@ -435,15 +456,14 @@ export default function MissionSimulator() {
       robots: [...w.robots],
       items: [...w.items],
       logs: [...w.logs],
+      observer: { ...w.observer },
       drone: { ...w.drone },
     });
     if (w.ended) setRunning(false);
   }, []);
   const reset = useCallback(
-    (droneEnabled?: boolean) => {
-      worldRef.current = createWorld(
-        droneEnabled ?? worldRef.current.drone.enabled,
-      );
+    (mode?: ObservationMode) => {
+      worldRef.current = createWorld(mode ?? worldRef.current.observer.mode);
       setRunning(false);
       publish();
     },
@@ -491,7 +511,7 @@ export default function MissionSimulator() {
       {
         name: 'read_simulation_state',
         description:
-          'Read the four ground robots, Bat observation model, carried items, final-state score, and servo/sensor state.',
+          'Read the four ground robots, fixed-camera or Bat observation model, carried items, final-state score, and servo/sensor state.',
         annotations: { readOnlyHint: true },
         execute: () => ({
           world: worldRef.current,
@@ -590,8 +610,17 @@ export default function MissionSimulator() {
           <header className="qualifier-header">
             <div>
               <p className="mission-kicker">SENIOR 예선 · 120초 점수제</p>
-              <h1>햄스터 × 2 · 비버 × 2 · 박쥐 × 1</h1>
-              <p>샘플 포획, 환자 분류, 의료키트 배분을 한 경기에서.</p>
+              <h1>
+                햄스터 × 2 · 비버 × 2 ·{' '}
+                {world.observer.mode === 'fixed'
+                  ? '고정 카메라 × 2'
+                  : '박쥐 × 1'}
+              </h1>
+              <p>
+                {world.observer.mode === 'fixed'
+                  ? '드론 없이 두 고정 영상으로 추적·경로 계획·운반.'
+                  : '박쥐의 상공 영상으로 추적·경로 계획·운반.'}
+              </p>
             </div>
             <div className="score-total">
               <span>{world.ended ? '최종 모의 점수' : '현재 배치 점수'}</span>
@@ -819,37 +848,61 @@ export default function MissionSimulator() {
               </section>
               <section className="control-card bat-card">
                 <h2>
-                  <Radio size={17} /> 박쥐 <small>관측 모의</small>
+                  {world.observer.mode === 'fixed' ? (
+                    <Camera size={17} />
+                  ) : (
+                    <Radio size={17} />
+                  )}{' '}
+                  관측 방식 <small>변경 시 초기화</small>
                 </h2>
-                <label className="bat-toggle">
-                  <input
-                    type="checkbox"
-                    checked={world.drone.enabled}
-                    onChange={(e) => reset(e.target.checked)}
-                  />{' '}
-                  드론 사용 · 변경 시 초기화
-                </label>
+                <div className="observer-mode" aria-label="관측 방식">
+                  <button
+                    type="button"
+                    aria-pressed={world.observer.mode === 'fixed'}
+                    onClick={() => reset('fixed')}
+                  >
+                    <Camera size={16} />
+                    <span>
+                      <strong>고정 카메라 2대</strong>
+                      <small>드론 없음 · 기본</small>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={world.observer.mode === 'drone'}
+                    onClick={() => reset('drone')}
+                  >
+                    <Radio size={16} />
+                    <span>
+                      <strong>박쥐 드론 1대</strong>
+                      <small>이륙·상공 관측</small>
+                    </span>
+                  </button>
+                </div>
                 <p>
                   {world.drone.enabled
                     ? `${world.drone.phase === 'takeoff' ? '이륙' : world.drone.phase === 'ground' ? '시작구역 대기' : world.drone.phase === 'hold' ? '대기' : '상공 관측'} · 높이 ${world.drone.altitude.toFixed(2)}m`
-                    : '고정 카메라 관측을 가정'}
+                    : 'CAM-1 + CAM-2 영상 융합 · 10Hz 관측 모의'}
                 </p>
                 <p className="compact-note">
-                  150×150mm 드론은 연습값. 실제 크기·영상·비행 제어는 미연결.
+                  {world.observer.mode === 'fixed'
+                    ? '두 카메라는 경기장 밖 고정 설치를 가정하며 로봇 충돌 장애물이 아닙니다. 실제 영상 보정은 미연결.'
+                    : '150×150mm 드론은 연습값. 실제 크기·영상·비행 제어는 미연결.'}
                 </p>
                 <label className="test-fault">
                   <input
                     type="checkbox"
-                    disabled={!world.drone.enabled}
-                    checked={world.drone.lost}
+                    checked={world.observer.lost}
                     onChange={(e) => {
-                      worldRef.current.drone.lost = e.target.checked;
+                      worldRef.current.observer.lost = e.target.checked;
                       publish();
                     }}
                   />{' '}
-                  관측 끊김 시험
+                  {world.observer.mode === 'fixed'
+                    ? '두 카메라 영상 끊김 시험'
+                    : '드론 영상 끊김 시험'}
                 </label>
-                {world.drone.frameAge > 0.5 && (
+                {world.observer.frameAge > 0.5 && (
                   <p className="fault-message">관측 0.5초 초과 · 지상팀 대기</p>
                 )}
               </section>

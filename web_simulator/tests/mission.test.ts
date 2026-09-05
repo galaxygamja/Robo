@@ -27,13 +27,17 @@ function solvedItems(): Item[] {
   return w.items;
 }
 
-void test('fleet is two hamsters, two beavers and one optional observer, not six ground robots', () => {
+void test('default fleet is four ground robots with two fixed cameras and no drone', () => {
   const w = createWorld();
   assert.deepEqual(w.robots.map((r) => r.id).sort(), ['B1', 'B2', 'H1', 'H2']);
   assert.equal(w.robots.filter((r) => r.role === 'hamster').length, 2);
   assert.equal(w.robots.filter((r) => r.role === 'beaver').length, 2);
-  assert.equal(w.drone.enabled, true);
+  assert.equal(w.observer.mode, 'fixed');
+  assert.equal(w.observer.cameraCount, 2);
+  assert.equal(w.drone.enabled, false);
   assert.equal(createWorld(false).drone.enabled, false);
+  assert.equal(createWorld('drone').drone.enabled, true);
+  assert.equal(createWorld(true).observer.mode, 'drone');
   assert.equal(w.items.length, 19);
   assert.equal(w.robots.flatMap((r) => r.jobs).length, 16);
   assert.equal(
@@ -55,7 +59,7 @@ void test('fleet is two hamsters, two beavers and one optional observer, not six
 });
 
 void test('assumed 150mm Bat and four nominal bodies fit the 480 by 280mm start', () => {
-  const w = createWorld();
+  const w = createWorld('drone');
   const start = FIELD.startZone;
   const bat = rectanglePolygon({
     x: w.drone.pose.x - SPEC.droneWidth / 2,
@@ -189,11 +193,12 @@ void test('the entire default mission carries all 16 objects continuously with 1
   assert.ok(w.robots.every((r) => r.velocity.x === 0 && r.velocity.y === 0));
 });
 
-void test('fixed-camera option completes the same ground mission without a flying participant', () => {
-  const w = createWorld(false);
+void test('optional Bat mode completes the same ground mission with one flying observer', () => {
+  const w = createWorld('drone');
   for (let i = 0; i < 6001 && !w.ended; i++) advance(w);
   assert.equal(scoreWorld(w.items).points, 160);
-  assert.equal(w.drone.altitude, 0);
+  assert.equal(w.observer.cameraCount, 1);
+  assert.equal(w.drone.altitude, 0.8);
 });
 
 void test('an optical sensor timeout cannot attach or score a disc', () => {
@@ -228,7 +233,9 @@ void test('release confirmation timeout keeps payload attached and unscored', ()
 void test('0.5s stale observer feedback freezes ground motion but not the match deadline', () => {
   const w = createWorld();
   for (let i = 0; i < 450; i++) advance(w);
-  w.drone.lost = true;
+  assert.equal(w.observer.mode, 'fixed');
+  assert.equal(w.drone.enabled, false);
+  w.observer.lost = true;
   for (let i = 0; i < 30; i++) advance(w);
   const poses = w.robots.map((r) => ({ ...r.pose })),
     elapsed = w.elapsed;
@@ -238,7 +245,7 @@ void test('0.5s stale observer feedback freezes ground motion but not the match 
     poses,
   );
   assert.ok(w.elapsed > elapsed);
-  assert.equal(w.drone.phase, 'hold');
+  assert.ok(w.observer.frameAge > 0.5);
 });
 
 void test('deadline and early declaration freeze a final snapshot; invalid dt is ignored', () => {
