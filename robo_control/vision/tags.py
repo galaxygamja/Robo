@@ -361,8 +361,8 @@ class AprilTagDetector:
                 rejections.append(TagRejection(tag_id, "invalid_projection", corners_px))
                 continue
             if (self.config.tag_size_mm is not None
-                    and abs(observed_size - self.config.tag_size_mm)
-                    > self.config.tag_size_mm * self.config.tag_size_tolerance_fraction):
+                    and (np.abs(edge_lengths - self.config.tag_size_mm)
+                         > self.config.tag_size_mm * self.config.tag_size_tolerance_fraction).any()):
                 rejections.append(TagRejection(tag_id, "tag_size_mismatch", corners_px))
                 continue
             forward_mm, left_mm = self.config.robot_center_from_tag_mm.get(robot_id, (0.0, 0.0))

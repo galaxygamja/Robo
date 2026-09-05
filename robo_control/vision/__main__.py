@@ -11,9 +11,13 @@ from contextlib import ExitStack
 from pathlib import Path
 
 from ..adapters import CameraFrame, OpenCVCameraSource, VideoFileSource
+from ..fleet import validate_tag_registry
 from .calibration import CORNER_NAMES, FieldCalibration, vision_dependencies
 from .pipeline import FrameProcessor, FrameRejected
-from .tags import AprilTagDetector, TagDetectorConfig, default_tag_config_path
+from .tags import AprilTagDetector, TagDetectorConfig, TagDetectionError, default_tag_config_path
+from .tracking import PoseTracker
+from .colors import ColorDetector
+from .map_view import draw_position_map
 
 
 def _positive_int(value: str) -> int:
@@ -56,6 +60,7 @@ def _parser() -> argparse.ArgumentParser:
     _source_options(detect, images=True)
     detect.add_argument("--calibration", type=Path, required=True)
     detect.add_argument("--tags", type=Path, default=default_tag_config_path(), help="robot tag JSON")
+    detect.add_argument("--fleet", type=Path, help="cross-check mission ground_robots IDs/roles/tag_id against tag config")
     detect.add_argument("--frames", type=_positive_int, default=100)
     detect.add_argument("--max-age-ms", type=float, default=200.0)
     detect.add_argument("--preview", action="store_true", help="display annotated original frames")
@@ -63,6 +68,9 @@ def _parser() -> argparse.ArgumentParser:
     detect.add_argument("--report", type=Path, help="write one detection record per frame as JSONL")
     detect.add_argument("--require-complete-observation", action="store_true",
                         help="exit 1 unless every processed frame sees all configured robots exactly once")
+    detect.add_argument("--track", action="store_true", help="append measured-pose history and fail-closed freshness gates")
+    detect.add_argument("--colors", type=Path, help="HSV/metric contour profile JSON; enables colour candidates")
+    detect.add_argument("--moving-camera", action="store_true", help="reject static calibration for moving cameras (dynamic calibration not yet implemented)")
 
     check = commands.add_parser("check", help="measure independently surveyed field landmarks")
     check.add_argument("--calibration", type=Path, required=True)
@@ -73,7 +81,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _distinct_paths(args: argparse.Namespace) -> None:
-    inputs = [getattr(args, key, None) for key in ("image", "video", "calibration", "points", "tags")]
+    inputs = [getattr(args, key, None) for key in ("image", "video", "calibration", "points", "tags", "colors", "fleet")]
     outputs = [getattr(args, key, None) for key in ("output", "preview_output", "report")]
     input_paths = {p.resolve() for p in inputs if p is not None}
     output_paths = [p.resolve() for p in outputs if p is not None]
@@ -267,11 +275,17 @@ def _still_frame(path: Path) -> CameraFrame:
 
 
 def _detect(args: argparse.Namespace) -> int:
+    if args.moving_camera:
+        raise ValueError("Moving camera requires per-frame field references; saved static calibration is unsafe. Drone simulation is not a live camera adapter.")
     cv2, _ = vision_dependencies()
     calibration = FieldCalibration.load(args.calibration)
     tag_config = TagDetectorConfig.load(args.tags)
+    if args.fleet is not None:
+        validate_tag_registry(json.loads(args.fleet.read_text(encoding="utf-8-sig")), tag_config.tag_to_robot)
     detector = AprilTagDetector(tag_config, calibration)
     processor = FrameProcessor(calibration, args.max_age_ms / 1000.0)
+    tracker = PoseTracker(tag_config.tag_to_robot.values()) if args.track else None
+    color_detector = ColorDetector.load(calibration, args.colors) if args.colors else None
     processed = complete = detected = total = 0
     unknown = duplicates = missing_frames = rejected_frames = 0
     rejection_reasons: Counter[str] = Counter()
@@ -304,12 +318,18 @@ def _detect(args: argparse.Namespace) -> int:
                 "dictionary_name": tag_config.dictionary_name,
                 "tag_size_mm": tag_config.tag_size_mm,
                 "hardware_verified": tag_config.hardware_verified,
+                "coordinate_system": "bottom_left_x_right_y_up_mm",
+                "field_size_mm": list(calibration.field_size_mm),
+                "registered_robot_ids": sorted(tag_config.tag_to_robot.values()),
+                "mission_registry_checked": args.fleet is not None,
+                "device_io": False,
             }
             try:
                 processor.begin_frame(frame)
                 batch = detector.detect(frame)
+                objects = color_detector.detect(frame, batch.observations) if color_detector else []
                 processed_at_s, age_s = processor.finish_frame(frame)
-            except FrameRejected as exc:
+            except (FrameRejected, TagDetectionError) as exc:
                 processor.abandon_frame()
                 rejected_frames += 1
                 rejection_reasons[exc.reason] += 1
@@ -326,9 +346,11 @@ def _detect(args: argparse.Namespace) -> int:
                 duplicates += len(batch.duplicate_tag_ids)
                 missing_frames += int(bool(batch.missing_robot_ids))
                 record.update(status="detected", processed_at_s=processed_at_s,
-                              host_age_ms=age_s * 1000.0, **batch.as_dict())
+                              host_age_ms=age_s * 1000.0, objects=objects, **batch.as_dict())
                 last = detector.annotate(frame.image, batch)
-                if args.preview:
+                if color_detector:
+                    color_detector.annotate(last, objects)
+                if args.preview and not args.track:
                     if not preview_created:
                         cv2.namedWindow(preview_window, cv2.WINDOW_NORMAL)
                         scale = min(1.0, 1000 / last.shape[1], 650 / last.shape[0])
@@ -336,13 +358,29 @@ def _detect(args: argparse.Namespace) -> int:
                                          max(2, round(last.shape[0] * scale)))
                         preview_created = True
                     cv2.imshow(preview_window, last)
+            if tracker:
+                record.update(tracker.update(record, time.monotonic()))
+                if args.preview:
+                    if not preview_created:
+                        cv2.namedWindow(preview_window, cv2.WINDOW_NORMAL)
+                        preview_created = True
+                    cv2.imshow(preview_window, draw_position_map(record, calibration.field_size_mm))
             if report is not None:
                 report.write(json.dumps(record, allow_nan=False) + "\n")
+                report.flush()
             if args.preview:
                 key = cv2.waitKey(1) & 0xFF
                 if key in (27, ord("q")) or (preview_created and _window_closed(preview_window)):
                     status = "user_stopped"
                     break
+        if tracker and report is not None:
+            # Consumers ALSO need a watchdog if this process blocks or dies.
+            terminal_at = time.monotonic()
+            report.write(json.dumps({"status": "source_closed", "source_name": tracker.source or "unopened",
+                "sequence": tracker.sequence + 1, "captured_at_s": terminal_at, "reason": status,
+                "field_size_mm": list(calibration.field_size_mm), "is_replay": args.camera is None,
+                **tracker.snapshot(terminal_at)}, allow_nan=False) + "\n")
+            report.flush()
     if args.output is not None and last is not None:
         _write_image(args.output, last)
     summary = {

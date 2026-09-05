@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "hardware_verified": false,
+  "note": "Provisional HSV/area thresholds for coloured cylinders only. Tune with actual lighting; color is not object identity. Discs/cubes require measured profiles or separate detectors.",
+  "profiles": [
+    {"color":"red","kind":"cylinder","hsv_ranges":[[[0,110,80],[10,255,255]],[[170,110,80],[179,255,255]]],"min_area_mm2":140,"max_area_mm2":500,"min_circularity":0.65},
+    {"color":"yellow","kind":"cylinder","hsv_ranges":[[[20,110,80],[38,255,255]]],"min_area_mm2":140,"max_area_mm2":500,"min_circularity":0.65},
+    {"color":"green","kind":"cylinder","hsv_ranges":[[[40,80,65],[85,255,255]]],"min_area_mm2":140,"max_area_mm2":500,"min_circularity":0.65}
+  ]
+}

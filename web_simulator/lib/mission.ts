@@ -13,7 +13,19 @@ export { FIELD, OFFICIAL_LAYOUT };
 export type Kind = 'disc' | 'cylinder' | 'cube';
 export type PatientColor = 'red' | 'yellow' | 'green';
 export type ZoneId = 'H' | 'PCC-L' | 'PCC-R' | 'RZ';
-export type ObservationMode = 'fixed' | 'drone';
+export type ObservationMode = 'localization' | 'drone';
+export type FleetSpec = {
+  id: string;
+  name: string;
+  role: 'hamster' | 'beaver';
+  color: string;
+  pose: Pose;
+  delay: number;
+  jobs: Job[];
+  magazine: string[];
+  staging: Point;
+  park: Point;
+};
 export type Phase =
   | 'waiting'
   | 'to-pick'
@@ -69,6 +81,8 @@ export type Robot = {
   velocity: Point;
   fault: string | null;
   served: number;
+  staging: Point;
+  park: Point;
 };
 export type LogEntry = {
   time: number;
@@ -86,9 +100,15 @@ export type World = {
   faultRobot: string | null;
   observer: {
     mode: ObservationMode;
-    cameraCount: number;
     frameAge: number;
     lost: boolean;
+    missingId: string | null;
+    sampledAt: number;
+    sequence: number;
+    poses: Record<
+      string,
+      { x_mm: number; y_mm: number; heading_rad: number; at: number }
+    >;
   };
   drone: {
     enabled: boolean;
@@ -173,13 +193,14 @@ const log = (world: World, text: string, level: LogEntry['level'] = 'info') => {
 };
 
 export function createWorld(
-  observation: ObservationMode | boolean = 'fixed',
+  observation: ObservationMode | boolean = 'localization',
+  fleet?: FleetSpec[],
 ): World {
   const observationMode: ObservationMode =
     typeof observation === 'boolean'
       ? observation
         ? 'drone'
-        : 'fixed'
+        : 'localization'
       : observation;
   const items: Item[] = [];
   const add = (
@@ -220,16 +241,20 @@ export function createWorld(
   const jobs: Record<string, Job[]> = {
     H1: [
       { itemId: 'D1', destination: 'LAB', drop: LAB_SLOTS[0], slot: 0 },
+      { itemId: 'D2', destination: 'LAB', drop: LAB_SLOTS[1], slot: 1 },
       { itemId: 'D3', destination: 'LAB', drop: LAB_SLOTS[2], slot: 2 },
     ],
-    H2: [{ itemId: 'D2', destination: 'LAB', drop: LAB_SLOTS[1], slot: 1 }],
+    H2: [
+      { itemId: 'R2', destination: 'H', drop: { x: 0.55, y: 1.045 } },
+      { itemId: 'Y2', destination: 'PCC-R', drop: { x: 1.04, y: 1.045 } },
+      { itemId: 'G2', destination: 'RZ', drop: { x: 1.01, y: 0.055 } },
+    ],
     B1: [
       { itemId: 'C1', destination: 'H', drop: { x: 0.48, y: 1.135 } },
       { itemId: 'C2', destination: 'PCC-L', drop: { x: 0.18, y: 1.135 } },
       { itemId: 'R1', destination: 'H', drop: { x: 0.45, y: 1.045 } },
       { itemId: 'Y1', destination: 'PCC-L', drop: { x: 0.12, y: 1.045 } },
       { itemId: 'G1', destination: 'RZ', drop: { x: 0.75, y: 0.055 } },
-      { itemId: 'R2', destination: 'H', drop: { x: 0.55, y: 1.045 } },
     ],
     B2: [
       { itemId: 'C3', destination: 'H', drop: { x: 0.66, y: 1.135 } },
@@ -237,32 +262,18 @@ export function createWorld(
       { itemId: 'R3', destination: 'H', drop: { x: 0.65, y: 1.045 } },
       { itemId: 'Y3', destination: 'PCC-R', drop: { x: 0.96, y: 1.045 } },
       { itemId: 'G3', destination: 'RZ', drop: { x: 0.88, y: 0.055 } },
-      { itemId: 'Y2', destination: 'PCC-R', drop: { x: 1.04, y: 1.045 } },
-      { itemId: 'G2', destination: 'RZ', drop: { x: 1.01, y: 0.055 } },
     ],
   };
-  const make = (
-    id: string,
-    name: string,
-    role: Robot['role'],
-    pose: Pose,
-    delay: number,
-    color: string,
-  ): Robot => ({
-    id,
-    name,
-    role,
-    color,
-    pose,
-    delay,
-    jobs: jobs[id],
+  const make = (spec: FleetSpec): Robot => ({
+    ...spec,
+    pose: { ...spec.pose },
+    jobs: spec.jobs.map((j) => ({ ...j, drop: { ...j.drop } })),
     jobIndex: 0,
     phase: 'waiting',
     payload: null,
-    magazine:
-      role === 'beaver' ? (id === 'B1' ? ['C1', 'C2'] : ['C3', 'C4']) : [],
+    magazine: [...spec.magazine],
     path: [],
-    trail: [{ x: pose.x, y: pose.y }],
+    trail: [{ x: spec.pose.x, y: spec.pose.y }],
     target: null,
     timer: 0,
     wait: 0,
@@ -275,45 +286,103 @@ export function createWorld(
     fault: null,
     served: 0,
   });
-  const robots = [
-    make(
-      'B1',
-      '한가한 비버',
-      'beaver',
-      { x: 0.9, y: 0.21, heading: 0 },
-      4,
-      '#60a5fa',
-    ),
-    make(
-      'H1',
-      '햄스터 1',
-      'hamster',
-      { x: 1.055, y: 0.21, heading: Math.PI },
-      7,
-      '#c084fc',
-    ),
-    make(
-      'B2',
-      '바쁜 비버',
-      'beaver',
-      { x: 0.9, y: 0.065, heading: 0 },
-      10,
-      '#38bdf8',
-    ),
-    make(
-      'H2',
-      '햄스터 2',
-      'hamster',
-      { x: 1.055, y: 0.065, heading: Math.PI },
-      13,
-      '#e879f9',
-    ),
+  const defaults: FleetSpec[] = [
+    {
+      id: 'B1',
+      name: '한가한 비버',
+      role: 'beaver',
+      pose: { x: 0.9, y: 0.21, heading: 0 },
+      delay: 4,
+      color: '#60a5fa',
+      jobs: jobs.B1,
+      magazine: ['C1', 'C2'],
+      staging: { x: 0.46, y: 0.6 },
+      park: { x: 0.12, y: 0.88 },
+    },
+    {
+      id: 'H1',
+      name: '햄스터',
+      role: 'hamster',
+      pose: { x: 1.055, y: 0.21, heading: Math.PI },
+      delay: 7,
+      color: '#c084fc',
+      jobs: jobs.H1,
+      magazine: [],
+      staging: { x: 0.6, y: 0.34 },
+      park: { x: 0.6, y: 0.34 },
+    },
+    {
+      id: 'B2',
+      name: '바쁜 비버',
+      role: 'beaver',
+      pose: { x: 0.9, y: 0.065, heading: 0 },
+      delay: 10,
+      color: '#38bdf8',
+      jobs: jobs.B2,
+      magazine: ['C3', 'C4'],
+      staging: { x: 0.68, y: 0.61 },
+      park: { x: 1.02, y: 0.88 },
+    },
+    {
+      id: 'H2',
+      name: '세 번째 비버 · B3',
+      role: 'beaver',
+      pose: { x: 1.055, y: 0.065, heading: 0 },
+      delay: 13,
+      color: '#fb923c',
+      jobs: jobs.H2,
+      magazine: [],
+      staging: { x: 0.4, y: 0.35 },
+      park: { x: 0.57, y: 0.87 },
+    },
   ];
+  const selectedFleet = fleet ?? defaults;
+  if (
+    !selectedFleet.length ||
+    new Set(selectedFleet.map((r) => r.id)).size !== selectedFleet.length ||
+    selectedFleet.some(
+      (r) =>
+        !/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(r.id) ||
+        !['hamster', 'beaver'].includes(r.role) ||
+        ![
+          r.pose.x,
+          r.pose.y,
+          r.pose.heading,
+          r.delay,
+          r.staging.x,
+          r.staging.y,
+          r.park.x,
+          r.park.y,
+        ].every(Number.isFinite) ||
+        r.delay < 0 ||
+        r.magazine.length > 2 ||
+        (r.role === 'hamster' && r.magazine.length),
+    )
+  )
+    throw new Error('Invalid or duplicate fleet configuration');
+  const robots = selectedFleet.map(make);
   robots.forEach((robot) =>
     robot.magazine.forEach((id) =>
       add(id, 'cube', robot.pose, undefined, true, robot.id),
     ),
   );
+  const assignments = robots.flatMap((r) =>
+    r.jobs.map((j) => ({ robot: r, job: j })),
+  );
+  if (
+    new Set(items.map((i) => i.id)).size !== items.length ||
+    new Set(assignments.map((a) => a.job.itemId)).size !== assignments.length ||
+    assignments.some(({ robot, job }) => {
+      const item = items.find((i) => i.id === job.itemId);
+      return (
+        !item ||
+        (item.kind === 'disc') !== (robot.role === 'hamster') ||
+        (item.kind === 'cube' && item.carrier !== robot.id) ||
+        ![job.drop.x, job.drop.y].every(Number.isFinite)
+      );
+    })
+  )
+    throw new Error('Invalid task ownership or repeated physical object');
   return {
     elapsed: 0,
     robots,
@@ -326,17 +395,20 @@ export function createWorld(
       {
         time: 0,
         text:
-          observationMode === 'fixed'
-            ? '드론 없음 · 고정 카메라 2대 관측으로 지상팀 준비'
+          observationMode === 'localization'
+            ? '드론 없음 · 실시간 좌표 관측 모의로 지상팀 준비'
             : '박쥐 드론 관측으로 지상팀 준비',
         level: 'info',
       },
     ],
     observer: {
       mode: observationMode,
-      cameraCount: observationMode === 'fixed' ? 2 : 1,
       frameAge: 0,
       lost: false,
+      missingId: null,
+      sampledAt: -1,
+      sequence: 0,
+      poses: {},
     },
     drone: {
       enabled: observationMode === 'drone',
@@ -718,14 +790,7 @@ function startJob(world: World, robot: Robot) {
   const job = jobOf(robot);
   if (!job) {
     enter(robot, 'park');
-    const spot =
-      robot.id === 'H1'
-        ? { x: 0.6, y: 0.34 }
-        : robot.id === 'H2'
-          ? { x: 0.1, y: 0.09 }
-          : robot.id === 'B1'
-            ? { x: 0.12, y: 0.88 }
-            : { x: 1.02, y: 0.88 };
+    const spot = robot.park;
     assignTarget(robot, { ...spot, heading: robot.pose.heading });
     return;
   }
@@ -854,6 +919,22 @@ export function advance(world: World, dt: number = SPEC.dt): World {
   observer.frameAge = observer.lost
     ? observer.frameAge + step
     : world.elapsed % 0.1;
+  if (!observer.lost && world.elapsed - observer.sampledAt >= 0.1 - 1e-9) {
+    observer.sampledAt = world.elapsed;
+    observer.sequence++;
+    for (const r of world.robots) {
+      if (r.id === observer.missingId) continue;
+      observer.poses[r.id] = {
+        x_mm: r.pose.x * 1000,
+        y_mm: r.pose.y * 1000,
+        heading_rad: normalizeAngle(r.pose.heading + Math.PI / 2),
+        at: world.elapsed,
+      };
+    }
+  }
+  // Every ground robot participates in the shared collision/localization gate.
+  // This is a noise-free synthetic sensor, NOT OpenCV running in the browser.
+  if (observer.missingId !== null) return world;
   if (observer.frameAge > 0.5) {
     world.drone.phase = 'hold';
     return world;
@@ -914,11 +995,7 @@ export function advance(world: World, dt: number = SPEC.dt): World {
         enter(robot, 'clear-pick');
         // Leave the crowded object row before rotating a loaded gripper.
         const staging =
-          robot.role === 'hamster'
-            ? tip(robot.pose, -0.1)
-            : robot.id === 'B1'
-              ? { x: 0.46, y: 0.6 }
-              : { x: 0.68, y: 0.61 };
+          robot.role === 'hamster' ? tip(robot.pose, -0.1) : robot.staging;
         assignTarget(robot, { ...staging, heading: robot.pose.heading });
       }
     } else if (robot.phase === 'clear-pick') {
@@ -966,11 +1043,7 @@ export function advance(world: World, dt: number = SPEC.dt): World {
         robot.served++;
         enter(robot, 'retreat');
         const exit =
-          robot.role === 'hamster'
-            ? robot.id === 'H1'
-              ? { x: 0.6, y: 0.34 }
-              : { x: 0.1, y: 0.09 }
-            : tip(robot.pose, -0.11);
+          robot.role === 'hamster' ? robot.park : tip(robot.pose, -0.11);
         assignTarget(robot, { ...exit, heading: robot.pose.heading });
         log(
           world,

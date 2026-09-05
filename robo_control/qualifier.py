@@ -15,13 +15,14 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .config import default_data_path
+from .fleet import DEFAULT_NAMES, DEFAULT_ROLES, robot_id_valid, roles_from_scenario, validate_roles
 
 RULE_VERSION = "KR qualifier v2 draft r5 (2026-08-12), Senior"
 MATCH_SECONDS = 120.0
 EPSILON_MM = 1e-6
 EXPECTED_COLOUR = {"H": "red", "PCC-L": "yellow", "PCC-R": "yellow", "RZ": "green"}
-ROBOT_ROLES = {"H1": "hamster", "H2": "hamster", "B1": "beaver", "B2": "beaver"}
-ROBOT_NAMES = {"H1": "햄스터 1", "H2": "햄스터 2", "B1": "한가한 비버", "B2": "바쁜 비버"}
+ROBOT_ROLES = DEFAULT_ROLES  # Backwards-compatible names, not a fleet-size limit.
+ROBOT_NAMES = DEFAULT_NAMES
 
 
 def finite_values(*values: float) -> None:
@@ -48,8 +49,8 @@ class Piece:
             raise ValueError("Cylinder colour must be red, yellow, or green")
         if type(self.released) is not bool:
             raise ValueError("released must be a JSON Boolean, not a string or number")
-        if self.held_by is not None and self.held_by not in ROBOT_ROLES:
-            raise ValueError("held_by must name a ground robot")
+        if self.held_by is not None and not robot_id_valid(self.held_by):
+            raise ValueError("held_by must be a valid robot ID; fleet membership is checked by the planner")
         if not self.id:
             raise ValueError("A physical piece needs a stable, non-empty ID")
 
@@ -196,20 +197,24 @@ class Task:
     target_y_mm: float
 
 
-def allocate_tasks(pieces: Iterable[Piece], zones: Iterable[Zone]) -> list[Task]:
+def allocate_tasks(pieces: Iterable[Piece], zones: Iterable[Zone], *, roles: dict[str, str] | None = None) -> list[Task]:
     """Deterministic role allocator, not a shortest-path or optimal-time solver.
 
-    Two hamster queues share three discs. Two beavers share nine cylinders and
-    four cubes. Preloaded cubes remain assigned to their actual hopper owner.
+    Any configured number of hamster/beaver queues may participate. Preloaded
+    cubes remain assigned to their actual hopper owner.
     """
     inventory = unique_pieces(pieces)
     zone_map = {zone.id: zone for zone in zones}
     tasks: list[Task] = []
-    loads = {robot: 0 for robot in ROBOT_ROLES}
+    roles = validate_roles(roles)
+    loads = {robot: 0 for robot in roles}
     slot_use: dict[str, int] = {}
 
     def add(piece: Piece, destination: str) -> None:
-        compatible = ("H1", "H2") if piece.kind == "disc" else ("B1", "B2")
+        role = "hamster" if piece.kind == "disc" else "beaver"
+        compatible = tuple(k for k, v in roles.items() if v == role)
+        if not compatible:
+            raise ValueError(f"Fleet has no {role} for {piece.id}")
         if piece.kind == "cube" and piece.held_by not in compatible:
             raise ValueError("Cube tasks require a known preloaded beaver hopper owner")
         if piece.held_by:
@@ -251,14 +256,16 @@ def allocate_tasks(pieces: Iterable[Piece], zones: Iterable[Zone]) -> list[Task]
     return tasks
 
 
-def configured_tasks(pieces: Iterable[Piece], zones: Iterable[Zone], plan: list[dict[str, Any]] | None) -> list[Task]:
+def configured_tasks(pieces: Iterable[Piece], zones: Iterable[Zone], plan: list[dict[str, Any]] | None,
+                     *, roles: dict[str, str] | None = None) -> list[Task]:
     """Validate an explicit scene plan, or use the generic role allocator.
 
     The shipped plan shares object IDs, assignments and drop positions with the
     web scene. It is a scenario schedule, not a learned or globally optimal plan.
     """
     objects, destinations = list(pieces), list(zones)
-    fallback = allocate_tasks(objects, destinations)  # Validate the kit inventory.
+    roles = validate_roles(roles)
+    fallback = allocate_tasks(objects, destinations, roles=roles)  # Validate the kit inventory.
     if plan is None:
         return fallback
     inventory = unique_pieces(objects)
@@ -268,11 +275,11 @@ def configured_tasks(pieces: Iterable[Piece], zones: Iterable[Zone], plan: list[
         raise ValueError("The Senior scene plan needs 16 unique tasks and physical objects")
     projected = dict(inventory)
     for task in tasks:
-        if task.piece_id not in inventory or task.destination_id not in zone_map or task.robot_id not in ROBOT_ROLES:
+        if task.piece_id not in inventory or task.destination_id not in zone_map or task.robot_id not in roles:
             raise ValueError("Scene plan references an unknown object, zone, or robot")
         finite_values(task.target_x_mm, task.target_y_mm)
         piece = inventory[task.piece_id]
-        if (piece.kind == "disc") != (ROBOT_ROLES[task.robot_id] == "hamster"):
+        if (piece.kind == "disc") != (roles[task.robot_id] == "hamster"):
             raise ValueError("Scene plan violates robot manipulation roles")
         if piece.held_by not in {None, task.robot_id}:
             raise ValueError("Scene plan reassigns another robot's preloaded object")
@@ -305,13 +312,14 @@ class Manipulator:
 
     def __init__(self, task: Task, piece: Piece, destination: Zone, *, start_s: float = 0.0,
                  phase_timeout_s: float = 4.0, feedback_max_age_s: float = 0.25,
-                 allow_synthetic: bool = False) -> None:
+                 allow_synthetic: bool = False, roles: dict[str, str] | None = None) -> None:
+        roles = validate_roles(roles)
         finite_values(start_s, phase_timeout_s, feedback_max_age_s)
         if not 0 <= start_s < MATCH_SECONDS or phase_timeout_s <= 0 or feedback_max_age_s <= 0:
             raise ValueError("Invalid start or timeout")
-        if task.robot_id not in ROBOT_ROLES or task.piece_id != piece.id or task.destination_id != destination.id:
+        if task.robot_id not in roles or task.piece_id != piece.id or task.destination_id != destination.id:
             raise ValueError("Task, robot, piece, and destination must agree")
-        if (piece.kind == "disc") != (ROBOT_ROLES[task.robot_id] == "hamster"):
+        if (piece.kind == "disc") != (roles[task.robot_id] == "hamster"):
             raise ValueError("Hamsters handle discs; beavers handle cylinders and cubes")
         if piece.held_by not in {None, task.robot_id}:
             raise ValueError("Piece is held by another robot")
@@ -418,15 +426,17 @@ class Manipulator:
         return self.command()
 
 
-def ground_conflicts(poses: dict[str, tuple[float, float, float]], *, clearance_mm: float = 10.0) -> list[tuple[str, str]]:
+def ground_conflicts(poses: dict[str, tuple[float, float, float]], *, clearance_mm: float = 10.0,
+                     roles: dict[str, str] | None = None) -> list[tuple[str, str]]:
     """Conservative circular envelopes, including arm/load, for ALL ground pairs.
 
     This detects current conflicts, not swept trajectories. A path controller
     still needs time reservations/braking distances before actual motor output.
     """
     finite_values(clearance_mm)
-    if clearance_mm < 0 or not poses.keys() <= ROBOT_ROLES.keys():
-        raise ValueError("Use ground IDs H1, H2, B1, B2 and a non-negative clearance")
+    roles = validate_roles(roles)
+    if clearance_mm < 0 or not poses.keys() <= roles.keys():
+        raise ValueError("Use registered ground IDs and a non-negative clearance")
     for x, y, radius in poses.values():
         finite_values(x, y, radius)
         if radius <= 0:
@@ -447,6 +457,9 @@ def load_scenario(path: str | Path) -> tuple[dict[str, Any], list[Piece], list[Z
     if data.get("rule_profile") != "senior_qualifier_draft":
         raise ValueError("This core implements the Senior qualifier draft only")
     pieces = [Piece(**piece) for piece in data["pieces"]]
+    roles = roles_from_scenario(data)
+    if any(p.held_by is not None and p.held_by not in roles for p in pieces):
+        raise ValueError("Piece owner is not in the configured fleet")
     unique_pieces(pieces)
     zones = [Zone(**zone) for zone in data["destinations"]]
     return data, pieces, zones
@@ -462,14 +475,15 @@ def run_mock(scenario_path: str | Path, *, fail_signal: str | None = None) -> di
     data, pieces, zones = load_scenario(scenario_path)
     inventory = unique_pieces(pieces)
     zone_map = {zone.id: zone for zone in zones}
-    tasks = configured_tasks(pieces, zones, data.get("task_plan"))
+    roles = roles_from_scenario(data)
+    tasks = configured_tasks(pieces, zones, data.get("task_plan"), roles=roles)
     now_s = 0.0
     execution = []
     commands = []
     halted = False
     for task in tasks:
         machine = Manipulator(task, inventory[task.piece_id], zone_map[task.destination_id],
-                              start_s=now_s, allow_synthetic=True)
+                              start_s=now_s, allow_synthetic=True, roles=roles)
         while machine.phase not in {"done", "fault"}:
             commands.append(machine.command())
             now_s = min(MATCH_SECONDS, round(now_s + 0.1, 3))
@@ -485,7 +499,7 @@ def run_mock(scenario_path: str | Path, *, fail_signal: str | None = None) -> di
             break
     stop_commands = [
         {"robot_id": robot_id, "wheel_velocity_rad_s": [0.0] * 4, "servo_intent": "hold", "device_io": False}
-        for robot_id in ROBOT_ROLES
+        for robot_id in roles
     ]
     return {
         "mode": "explicit_synthetic_feedback_demo", "device_io": False,

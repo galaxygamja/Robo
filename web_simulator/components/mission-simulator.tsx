@@ -31,6 +31,7 @@ import {
   type ObservationMode,
 } from '@/lib/mission';
 import ArenaSimulator from './arena-simulator';
+import PositionMonitor from './position-monitor';
 import './mission.css';
 
 const px = (x: number) => x * 1000;
@@ -234,7 +235,7 @@ function FieldView({
     <svg
       className="mission-map"
       viewBox="-62 -65 1267 1336"
-      aria-label="햄스터 2대가 샘플을 LAB으로, 비버 2대가 색별 원기둥과 의료키트를 구역별로 운반하는 경기장"
+      aria-label="햄스터 1대와 비버 3대가 운반하는 연습 경기장"
     >
       <title>햄스터·비버·박쥐 예선 경기장</title>
       <defs>
@@ -359,25 +360,6 @@ function FieldView({
               })
             : itemGlyph(item),
         )}
-      {world.observer.mode === 'fixed' && (
-        <g className="fixed-camera-layer">
-          <path d="M75 -18L410 610M1068 -18L733 610" />
-          {[
-            { id: 'CAM-1', x: 75 },
-            { id: 'CAM-2', x: 1068 },
-          ].map((camera) => (
-            <g key={camera.id} transform={`translate(${camera.x} -34)`}>
-              <title>
-                {camera.id} · 고정 카메라 관측 모의 · 경기장 장애물 아님
-              </title>
-              <rect x="-23" y="-14" width="38" height="28" rx="5" />
-              <path d="M15-8L29-15V15L15 8Z" />
-              <circle r="6" />
-              <text y="36">{camera.id}</text>
-            </g>
-          ))}
-        </g>
-      )}
       {world.drone.enabled && (
         <g
           transform={`translate(${px(world.drone.pose.x)} ${py(world.drone.pose.y)})`}
@@ -511,7 +493,7 @@ export default function MissionSimulator() {
       {
         name: 'read_simulation_state',
         description:
-          'Read the four ground robots, fixed-camera or Bat observation model, carried items, final-state score, and servo/sensor state.',
+          'Read the four ground robots, measured-position or Bat observation model, carried items, final-state score, and servo/sensor state.',
         annotations: { readOnlyHint: true },
         execute: () => ({
           world: worldRef.current,
@@ -611,15 +593,15 @@ export default function MissionSimulator() {
             <div>
               <p className="mission-kicker">SENIOR 예선 · 120초 점수제</p>
               <h1>
-                햄스터 × 2 · 비버 × 2 ·{' '}
-                {world.observer.mode === 'fixed'
-                  ? '고정 카메라 × 2'
+                햄스터 × 1 · 비버 × 3 ·{' '}
+                {world.observer.mode === 'localization'
+                  ? '좌표 추적'
                   : '박쥐 × 1'}
               </h1>
               <p>
-                {world.observer.mode === 'fixed'
-                  ? '드론 없이 두 고정 영상으로 추적·경로 계획·운반.'
-                  : '박쥐의 상공 영상으로 추적·경로 계획·운반.'}
+                {world.observer.mode === 'localization'
+                  ? '로봇 ID·위치·방향으로 지상팀의 운반을 계획합니다.'
+                  : '박쥐 관측을 가정한 좌표 추적 모의 · 실제 비행 제어 미연결.'}
               </p>
             </div>
             <div className="score-total">
@@ -848,7 +830,7 @@ export default function MissionSimulator() {
               </section>
               <section className="control-card bat-card">
                 <h2>
-                  {world.observer.mode === 'fixed' ? (
+                  {world.observer.mode === 'localization' ? (
                     <Camera size={17} />
                   ) : (
                     <Radio size={17} />
@@ -858,12 +840,12 @@ export default function MissionSimulator() {
                 <div className="observer-mode" aria-label="관측 방식">
                   <button
                     type="button"
-                    aria-pressed={world.observer.mode === 'fixed'}
-                    onClick={() => reset('fixed')}
+                    aria-pressed={world.observer.mode === 'localization'}
+                    onClick={() => reset('localization')}
                   >
                     <Camera size={16} />
                     <span>
-                      <strong>고정 카메라 2대</strong>
+                      <strong>실시간 좌표 추적</strong>
                       <small>드론 없음 · 기본</small>
                     </span>
                   </button>
@@ -882,12 +864,12 @@ export default function MissionSimulator() {
                 <p>
                   {world.drone.enabled
                     ? `${world.drone.phase === 'takeoff' ? '이륙' : world.drone.phase === 'ground' ? '시작구역 대기' : world.drone.phase === 'hold' ? '대기' : '상공 관측'} · 높이 ${world.drone.altitude.toFixed(2)}m`
-                    : 'CAM-1 + CAM-2 영상 융합 · 10Hz 관측 모의'}
+                    : '위치·방향 관측 10Hz · 측정 시각·누락 상태 표시'}
                 </p>
                 <p className="compact-note">
-                  {world.observer.mode === 'fixed'
-                    ? '두 카메라는 경기장 밖 고정 설치를 가정하며 로봇 충돌 장애물이 아닙니다. 실제 영상 보정은 미연결.'
-                    : '150×150mm 드론은 연습값. 실제 크기·영상·비행 제어는 미연결.'}
+                  {world.observer.mode === 'localization'
+                    ? '카메라 수를 고정하지 않습니다. 실제 영상→AprilTag 좌표→추적 순으로 연결하며 현재 화면은 모의입니다.'
+                    : '이동 카메라는 매 프레임 보정이 필요합니다. 실제 드론 크기·영상·비행 제어는 미연결.'}
                 </p>
                 <label className="test-fault">
                   <input
@@ -898,16 +880,36 @@ export default function MissionSimulator() {
                       publish();
                     }}
                   />{' '}
-                  {world.observer.mode === 'fixed'
-                    ? '두 카메라 영상 끊김 시험'
+                  {world.observer.mode === 'localization'
+                    ? '전체 위치 입력 끊김 시험'
                     : '드론 영상 끊김 시험'}
                 </label>
                 {world.observer.frameAge > 0.5 && (
                   <p className="fault-message">관측 0.5초 초과 · 지상팀 대기</p>
                 )}
+                <label className="test-fault">
+                  <input
+                    type="checkbox"
+                    checked={world.observer.missingId === selected.id}
+                    onChange={(e) => {
+                      worldRef.current.observer.missingId = e.target.checked
+                        ? selected.id
+                        : null;
+                      publish();
+                    }}
+                  />{' '}
+                  선택 로봇 태그 누락 시험
+                </label>
+                {world.observer.missingId && (
+                  <p className="fault-message">
+                    {world.observer.missingId} 누락 · 충돌 예방을 위해 지상팀
+                    즉시 대기
+                  </p>
+                )}
               </section>
             </aside>
           </div>
+          <PositionMonitor world={world} />
           <section className="rules-and-log">
             <div className="control-card rule-card">
               <h2>이번 경기의 판정 조건</h2>
@@ -916,8 +918,8 @@ export default function MissionSimulator() {
                 없음. Ø56 → Ø60, 중심 오차 2mm 미만.
               </p>
               <p>
-                <b>큐브:</b> 비버에 2개씩 사전 적재. 병원 2개, PCC-L·PCC-R 각각
-                1개.
+                <b>큐브:</b> B1·B2에 2개씩 사전 적재, 세 번째 비버는 원기둥
+                담당. 병원 2개, PCC-L·PCC-R 각각 1개.
               </p>
               <p>
                 <b>원기둥:</b> 색별 4개 중 3개씩 선택. 빨강→H, 초록→RZ,

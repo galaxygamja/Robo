@@ -27,13 +27,12 @@ function solvedItems(): Item[] {
   return w.items;
 }
 
-void test('default fleet is four ground robots with two fixed cameras and no drone', () => {
+void test('default fleet is one hamster and three beavers with position telemetry and no drone', () => {
   const w = createWorld();
   assert.deepEqual(w.robots.map((r) => r.id).sort(), ['B1', 'B2', 'H1', 'H2']);
-  assert.equal(w.robots.filter((r) => r.role === 'hamster').length, 2);
-  assert.equal(w.robots.filter((r) => r.role === 'beaver').length, 2);
-  assert.equal(w.observer.mode, 'fixed');
-  assert.equal(w.observer.cameraCount, 2);
+  assert.equal(w.robots.filter((r) => r.role === 'hamster').length, 1);
+  assert.equal(w.robots.filter((r) => r.role === 'beaver').length, 3);
+  assert.equal(w.observer.mode, 'localization');
   assert.equal(w.drone.enabled, false);
   assert.equal(createWorld(false).drone.enabled, false);
   assert.equal(createWorld('drone').drone.enabled, true);
@@ -50,7 +49,7 @@ void test('default fleet is four ground robots with two fixed cameras and no dro
       assert.equal(item.kind === 'disc', r.role === 'hamster');
     }
   for (const r of w.robots.filter((r) => r.role === 'beaver'))
-    assert.equal(r.magazine.length, 2);
+    assert.equal(r.magazine.length, r.id === 'H2' ? 0 : 2);
   assert.equal(
     w.items.filter((i) => i.carrier).every((i) => i.kind === 'cube'),
     true,
@@ -197,7 +196,6 @@ void test('optional Bat mode completes the same ground mission with one flying o
   const w = createWorld('drone');
   for (let i = 0; i < 6001 && !w.ended; i++) advance(w);
   assert.equal(scoreWorld(w.items).points, 160);
-  assert.equal(w.observer.cameraCount, 1);
   assert.equal(w.drone.altitude, 0.8);
 });
 
@@ -233,7 +231,7 @@ void test('release confirmation timeout keeps payload attached and unscored', ()
 void test('0.5s stale observer feedback freezes ground motion but not the match deadline', () => {
   const w = createWorld();
   for (let i = 0; i < 450; i++) advance(w);
-  assert.equal(w.observer.mode, 'fixed');
+  assert.equal(w.observer.mode, 'localization');
   assert.equal(w.drone.enabled, false);
   w.observer.lost = true;
   for (let i = 0; i < 30; i++) advance(w);

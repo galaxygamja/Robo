@@ -14,6 +14,7 @@ from robo_control.qualifier import (
     Feedback, Manipulator, Piece, Task, Zone, allocate_tasks, configured_tasks, default_scenario_path, ground_conflicts,
     load_scenario, run_mock, score_senior,
 )
+from robo_control.fleet import DEFAULT_ROLES
 
 CONFIG = Path(__file__).resolve().parents[1] / "config" / "qualifier_senior.json"
 
@@ -119,7 +120,7 @@ class AllocationTests(unittest.TestCase):
         data, pieces, zones = load_scenario(CONFIG)
         tasks = {task.piece_id: task for task in configured_tasks(pieces, zones, data["task_plan"])}
         self.assertEqual((tasks["D3"].robot_id, tasks["D3"].target_x_mm, tasks["D3"].target_y_mm), ("H1", 580, 75))
-        self.assertEqual((tasks["Y2"].robot_id, tasks["Y2"].destination_id), ("B2", "PCC-R"))
+        self.assertEqual((tasks["Y2"].robot_id, tasks["Y2"].destination_id), ("H2", "PCC-R"))
         bad = [dict(entry) for entry in data["task_plan"]]
         bad[0]["robot_id"] = "B1"
         with self.assertRaises(ValueError):
@@ -133,7 +134,7 @@ class AllocationTests(unittest.TestCase):
         self.assertEqual(len({task.piece_id for task in tasks}), 16)
         self.assertEqual({task.robot_id for task in tasks}, {"H1", "H2", "B1", "B2"})
         for task in tasks:
-            self.assertEqual(task.robot_id.startswith("H"), objects[task.piece_id].kind == "disc")
+            self.assertEqual(DEFAULT_ROLES[task.robot_id] == "hamster", objects[task.piece_id].kind == "disc")
             if objects[task.piece_id].kind == "cube":
                 self.assertEqual(task.robot_id, objects[task.piece_id].held_by)
         unassigned = [piece for piece in pieces if piece.id not in {task.piece_id for task in tasks}]

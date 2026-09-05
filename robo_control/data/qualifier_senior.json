@@ -8,7 +8,10 @@
   "coordinate_frame": {
     "origin": "bottom_left",
     "x_positive": "right",
-    "y_positive": "up"
+    "y_positive": "up",
+    "heading_zero": "positive_x",
+    "heading_positive": "counterclockwise",
+    "heading_units": "radians"
   },
   "geometry_note": "Rectangles describe INNER edges, excluding boundary tape. LAB circles have inner radius 30 mm. Scene matches the web simulator; replace provisional layout with confirmed Korean qualifier drawings.",
   "field_reference_mm": {
@@ -36,17 +39,19 @@
       "name": "한가한 비버",
       "x_mm": 900,
       "y_mm": 210,
-      "yaw_rad": 0,
-      "body_size_confirmed": false
+      "yaw_rad": 1.5707963267948966,
+      "body_size_confirmed": false,
+      "tag_id": 2
     },
     {
       "id": "H1",
       "role": "hamster",
-      "name": "햄스터 1",
+      "name": "햄스터",
       "x_mm": 1055,
       "y_mm": 210,
-      "yaw_rad": 3.141592653589793,
-      "body_size_confirmed": false
+      "yaw_rad": -1.5707963267948966,
+      "body_size_confirmed": false,
+      "tag_id": 0
     },
     {
       "id": "B2",
@@ -54,17 +59,20 @@
       "name": "바쁜 비버",
       "x_mm": 900,
       "y_mm": 65,
-      "yaw_rad": 0,
-      "body_size_confirmed": false
+      "yaw_rad": 1.5707963267948966,
+      "body_size_confirmed": false,
+      "tag_id": 3
     },
     {
       "id": "H2",
-      "role": "hamster",
-      "name": "햄스터 2",
+      "role": "beaver",
+      "name": "세 번째 비버 · B3",
       "x_mm": 1055,
       "y_mm": 65,
-      "yaw_rad": 3.141592653589793,
-      "body_size_confirmed": false
+      "yaw_rad": 1.5707963267948966,
+      "body_size_confirmed": false,
+      "tag_id": 1,
+      "display_name": "B3"
     }
   ],
   "observer": {
@@ -75,7 +83,9 @@
     "y_mm": 140,
     "body_width_mm": 150,
     "body_length_mm": 150,
-    "flight_dimensions_confirmed": false
+    "flight_dimensions_confirmed": false,
+    "default_mode": "localization",
+    "note": "No fixed-camera count assumed. Real AprilTag poses feed localization, not raw-video-only monitoring. Drone flight remains synthetic; moving imagery requires dynamic calibration."
   },
   "destinations": [
     {
@@ -303,7 +313,7 @@
     {
       "id": "move-D2",
       "piece_id": "D2",
-      "robot_id": "H2",
+      "robot_id": "H1",
       "destination_id": "LAB-2",
       "target_x_mm": 480,
       "target_y_mm": 75
@@ -351,7 +361,7 @@
     {
       "id": "move-R2",
       "piece_id": "R2",
-      "robot_id": "B1",
+      "robot_id": "H2",
       "destination_id": "H",
       "target_x_mm": 550,
       "target_y_mm": 1045
@@ -399,7 +409,7 @@
     {
       "id": "move-Y2",
       "piece_id": "Y2",
-      "robot_id": "B2",
+      "robot_id": "H2",
       "destination_id": "PCC-R",
       "target_x_mm": 1040,
       "target_y_mm": 1045
@@ -407,7 +417,7 @@
     {
       "id": "move-G2",
       "piece_id": "G2",
-      "robot_id": "B2",
+      "robot_id": "H2",
       "destination_id": "RZ",
       "target_x_mm": 1010,
       "target_y_mm": 55
