@@ -196,7 +196,7 @@ void test('optional Bat mode completes the same ground mission with one flying o
   const w = createWorld('drone');
   for (let i = 0; i < 6001 && !w.ended; i++) advance(w);
   assert.equal(scoreWorld(w.items).points, 160);
-  assert.equal(w.drone.altitude, 0.8);
+  assert.ok(w.drone.altitude >= 0.6 && w.drone.altitude <= 1.0);
 });
 
 void test('an optical sensor timeout cannot attach or score a disc', () => {

@@ -901,3 +901,99 @@
   background: #4a1925;
   color: #fecaca;
 }
+.aerial-panel {
+  border-color: #1e6976;
+  background: linear-gradient(140deg, #0c2635, #102333);
+}
+.aerial-reason {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #c6f0f4;
+  margin: 12px 0;
+}
+.aerial-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+.aerial-metrics > div {
+  border-left: 2px solid #258a94;
+  padding-left: 10px;
+}
+.aerial-metrics span {
+  display: block;
+  font-size: 0.875rem;
+  color: #9ac2ce;
+}
+.aerial-metrics strong {
+  display: block;
+  font-size: 1.65rem;
+  color: #a5f3fc;
+  margin-top: 6px;
+}
+.aerial-metrics small {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #9ac2ce;
+}
+.aerial-good {
+  font-size: 0.875rem;
+  color: #5eead4;
+}
+.aerial-select {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  font-size: 0.875rem;
+}
+.aerial-select select {
+  background: #112f40;
+  border: 1px solid #396276;
+  color: #e0f2fe;
+  padding: 10px;
+  border-radius: 8px;
+  width: 100%;
+  font-size: 0.875rem;
+}
+.aerial-details {
+  margin: 14px 0;
+  font-size: 0.875rem;
+}
+.aerial-details > label {
+  display: block;
+  padding-top: 14px;
+}
+.aerial-details summary {
+  cursor: pointer;
+  color: #a5f3fc;
+}
+.aerial-challenge {
+  border-top: 1px solid #315060;
+  margin-top: 18px;
+  padding-top: 16px;
+}
+.aerial-challenge > strong {
+  font-size: 1rem;
+}
+.aerial-challenge p {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #afc4d4;
+  margin: 10px 0;
+}
+.aerial-challenge > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.aerial-challenge button {
+  flex: 1;
+  white-space: nowrap;
+  padding: 10px 8px;
+  color: #cffafe;
+  border: 1px solid #378592;
+  border-radius: 7px;
+  background: #123747;
+  font-size: 0.875rem;
+}

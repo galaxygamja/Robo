@@ -7,6 +7,13 @@ import {
   type Point,
   type Pose,
 } from './simulation.ts';
+import {
+  createDrone,
+  advanceAerial,
+  selectObservations,
+  type DroneState,
+  type PoseSample,
+} from './aerial.ts';
 
 // Geometry is a configurable reference scenario, not the unpublished Korean B-4 layout.
 export { FIELD, OFFICIAL_LAYOUT };
@@ -86,6 +93,7 @@ export type Robot = {
   stagnant: number;
   recoveryTarget: Pose | null;
   recoveryAttempts: number;
+  taskReorders: number;
 };
 export type LogEntry = {
   time: number;
@@ -95,10 +103,7 @@ export type LogEntry = {
 type ObservationPacket = {
   at: number;
   sequence: number;
-  poses: Record<
-    string,
-    { x_mm: number; y_mm: number; heading_rad: number; at: number }
-  >;
+  poses: Record<string, PoseSample>;
 };
 export type World = {
   elapsed: number;
@@ -122,17 +127,13 @@ export type World = {
     noiseMm: number;
     sentSequence: number;
     queue: ObservationPacket[];
-    poses: Record<
-      string,
-      { x_mm: number; y_mm: number; heading_rad: number; at: number }
-    >;
+    poses: Record<string, PoseSample>;
+    basePoses: Record<string, PoseSample>;
+    unavailableIds: string[];
+    conflictingIds: string[];
+    speedScale: number;
   };
-  drone: {
-    enabled: boolean;
-    pose: Point;
-    altitude: number;
-    phase: 'ground' | 'takeoff' | 'hover' | 'hold';
-  };
+  drone: DroneState;
 };
 export const ZONES: Record<
   ZoneId,
@@ -305,6 +306,7 @@ export function createWorld(
     stagnant: 0,
     recoveryTarget: null,
     recoveryAttempts: 0,
+    taskReorders: 0,
   });
   const defaults: FleetSpec[] = [
     {
@@ -435,13 +437,12 @@ export function createWorld(
       sentSequence: 0,
       queue: [],
       poses: {},
+      basePoses: {},
+      unavailableIds: [],
+      conflictingIds: [],
+      speedScale: 1,
     },
-    drone: {
-      enabled: observationMode === 'drone',
-      pose: { x: 0.742, y: 0.14 },
-      altitude: 0,
-      phase: 'ground',
-    },
+    drone: createDrone(observationMode === 'drone'),
   };
 }
 
@@ -815,6 +816,43 @@ function unlock(world: World, robot: Robot) {
   });
 }
 function startJob(world: World, robot: Robot) {
+  const current = robot.jobs[robot.jobIndex];
+  if (
+    world.drone.enabled &&
+    world.drone.strategy === 'active' &&
+    current &&
+    world.items.find((i) => i.id === current.itemId)?.kind === 'cylinder'
+  ) {
+    const recentlySeen = (id: string) => {
+      const seen = world.drone.objects[id];
+      return (
+        !!seen?.confirmed &&
+        world.elapsed - seen.at < 0.5 &&
+        world.drone.calibrationValid &&
+        !world.drone.videoLost
+      );
+    };
+    if (!recentlySeen(current.itemId)) {
+      const next = robot.jobs.findIndex(
+        (job, i) =>
+          i > robot.jobIndex &&
+          recentlySeen(job.itemId) &&
+          world.items.find((item) => item.id === job.itemId)?.kind ===
+            'cylinder',
+      );
+      if (next >= 0) {
+        [robot.jobs[robot.jobIndex], robot.jobs[next]] = [
+          robot.jobs[next],
+          robot.jobs[robot.jobIndex],
+        ];
+        robot.taskReorders++;
+        log(
+          world,
+          `${robot.name} · 드론이 확인한 ${robot.jobs[robot.jobIndex].itemId}부터 운반`,
+        );
+      }
+    }
+  }
   const job = jobOf(robot);
   if (!job) {
     enter(robot, 'park');
@@ -880,7 +918,7 @@ function move(world: World, robot: Robot, dt: number): boolean {
     return false;
   }
   const d = dist(robot.pose, next),
-    step = Math.min(d, SPEC.speed * dt);
+    step = Math.min(d, SPEC.speed * world.observer.speedScale * dt);
   const pose = {
     x: robot.pose.x + ((next.x - robot.pose.x) / (d || 1)) * step,
     y: robot.pose.y + ((next.y - robot.pose.y) / (d || 1)) * step,
@@ -1053,6 +1091,9 @@ export function advance(world: World, dt: number = SPEC.dt): World {
     return finish(world, '120초 종료 · 최종 배치 판정');
   }
   const observer = world.observer;
+  // The observer can seek a new view while the ground team is held for missing
+  // localization. A ground hold must not prevent the drone from recovering it.
+  advanceAerial(world, step);
   if (!observer.lost && world.elapsed - observer.sampledAt >= 0.1 - 1e-9) {
     observer.sampledAt = world.elapsed;
     observer.sentSequence++;
@@ -1069,6 +1110,8 @@ export function advance(world: World, dt: number = SPEC.dt): World {
         y_mm: r.pose.y * 1000 + Math.sin(jitter) * observer.noiseMm,
         heading_rad: normalizeAngle(r.pose.heading + Math.PI / 2),
         at: world.elapsed,
+        source: 'base',
+        errorMm: observer.noiseMm,
       };
     }
     observer.queue.push(packet);
@@ -1079,38 +1122,25 @@ export function advance(world: World, dt: number = SPEC.dt): World {
   ) {
     const packet = observer.queue.shift()!;
     observer.sequence = packet.sequence;
-    Object.assign(observer.poses, packet.poses);
+    Object.assign(observer.basePoses, packet.poses);
   }
   observer.queue = observer.queue.slice(-20);
-  observer.frameAge = Math.max(
-    ...world.robots.map((r) => world.elapsed - (observer.poses[r.id]?.at ?? 0)),
-  );
+  selectObservations(world, step);
   // Synthetic observation health gate; physics still uses ideal geometry.
   // The separate Python mock controller closes the measured-pose velocity loop.
   world.safetyReason = world.emergencyStopped
     ? '비상정지 잠금 · 초기화해야 해제'
-    : observer.missingId !== null
-      ? `${observer.missingId} 위치 누락`
-      : !world.robots.every((r) => observer.poses[r.id])
-        ? '첫 위치 관측 대기'
-        : observer.frameAge > 0.3
-          ? '위치 관측 300ms 만료'
-          : observer.noiseMm > 1
-            ? '위치 오차 상한 1mm 초과 · 정밀 배치 보류'
-            : '';
+    : observer.conflictingIds.length
+      ? `관측원 좌표 불일치 · ${observer.conflictingIds.join(', ')}`
+      : observer.unavailableIds.length
+        ? observer.noiseMm > 1
+          ? '위치 오차 상한 1mm 초과 · 정밀 배치 보류'
+          : observer.frameAge > 0.3
+            ? `위치 관측 300ms 만료 · ${observer.unavailableIds.join(', ')}`
+            : `유효한 위치 관측 대기 · ${observer.unavailableIds.join(', ')}`
+        : '';
   if (world.safetyReason) {
-    world.drone.phase = 'hold';
     return world;
-  }
-  const drone = world.drone;
-  if (drone.enabled) {
-    drone.altitude = Math.min(0.8, world.elapsed * 0.4);
-    drone.phase = world.elapsed < 2 ? 'takeoff' : 'hover';
-    const fraction = Math.min(1, Math.max(0, (world.elapsed - 2) / 1.5));
-    drone.pose = {
-      x: 0.742 + (0.5715 - 0.742) * fraction,
-      y: 0.14 + (0.61 - 0.14) * fraction,
-    };
   }
   for (const robot of world.robots) {
     if (robot.phase === 'fault' || robot.phase === 'complete') continue;

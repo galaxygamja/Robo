@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Robo · 햄스터 1대·비버 3대 실시간 좌표 추적',
+  title: 'Robo · 박쥐 드론 시야 탐색과 지상팀 운반',
   description:
-    '햄스터 1대·비버 3대 운반 모의, 드론 선택, AprilTag 좌표·방향과 색 물체 JSONL 관측 확인. 실제 하드웨어와 분리된 연습 시뮬레이터.',
+    '햄스터 1대·비버 3대와 박쥐의 능동 관측. 드론 없음·중앙 정지·이동 관측을 같은 가림 조건에서 비교하는 연습 시뮬레이터.',
 };
 
 export default function RootLayout({

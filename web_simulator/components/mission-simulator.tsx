@@ -34,6 +34,8 @@ import ArenaSimulator from './arena-simulator';
 import PositionMonitor from './position-monitor';
 import SimulationLab from './simulation-lab';
 import { createExperiment } from '@/lib/experiments';
+import AerialPanel from './aerial-panel';
+import { footprint, sceneOccluders, REFERENCE_MARKERS } from '@/lib/aerial';
 import './mission.css';
 
 const px = (x: number) => x * 1000;
@@ -239,6 +241,9 @@ function FieldView({
     >
       <title>햄스터·비버·박쥐 예선 경기장</title>
       <defs>
+        <clipPath id="aerial-field">
+          <rect width="1143" height="1181" />
+        </clipPath>
         <pattern
           id="mission-grid"
           width="100"
@@ -320,6 +325,75 @@ function FieldView({
       <text x="480" y="960" className="map-zone">
         LAB · Ø60 mm
       </text>
+      {world.drone.enabled &&
+        world.drone.altitude > 0.1 &&
+        (() => {
+          const view = footprint({
+            ...world.drone.pose,
+            z: world.drone.altitude,
+          });
+          return (
+            <g clipPath="url(#aerial-field)" pointerEvents="none">
+              <rect
+                x={px(view.x)}
+                y={py(view.y + view.height)}
+                width={px(view.width)}
+                height={px(view.height)}
+                fill="#0891b2"
+                fillOpacity=".08"
+                stroke={world.drone.calibrationValid ? '#0891b2' : '#d97706'}
+                strokeWidth="3"
+                strokeDasharray="14 7"
+              />
+              <polyline
+                points={world.drone.trail
+                  .map((p) => `${px(p.x)},${py(p.y)}`)
+                  .join(' ')}
+                stroke="#0891b2"
+                strokeWidth="3"
+                fill="none"
+                strokeDasharray="4 8"
+              />
+              {REFERENCE_MARKERS.map((p, i) => (
+                <rect
+                  key={i}
+                  x={px(p.x) - 7}
+                  y={py(p.y) - 7}
+                  width="14"
+                  height="14"
+                  fill={
+                    world.drone.anchorIds.includes(`F${i + 1}`)
+                      ? '#0891b2'
+                      : '#64748b'
+                  }
+                >
+                  <title>{`가상 보정 기준점 F${i + 1}`}</title>
+                </rect>
+              ))}
+              {world.robots
+                .filter((r) => world.drone.visibleRobots.includes(r.id))
+                .map((r) => (
+                  <line
+                    key={r.id}
+                    x1={px(world.drone.pose.x)}
+                    y1={py(world.drone.pose.y)}
+                    x2={px(r.pose.x)}
+                    y2={py(r.pose.y)}
+                    stroke={
+                      world.drone.recoveredIds.includes(r.id)
+                        ? '#059669'
+                        : '#0891b2'
+                    }
+                    strokeOpacity=".5"
+                    strokeWidth={
+                      world.drone.recoveredIds.includes(r.id) ? 5 : 2
+                    }
+                    strokeDasharray="6 6"
+                  />
+                ))}
+            </g>
+          );
+        })()}
       {routes &&
         world.robots.map((r) => (
           <polyline
@@ -360,6 +434,28 @@ function FieldView({
               })
             : itemGlyph(item),
         )}
+      {sceneOccluders(world).map((b) => (
+        <g key={b.id} pointerEvents="none">
+          <rect
+            x={px(b.min.x)}
+            y={py(b.max.y)}
+            width={px(b.max.x - b.min.x)}
+            height={px(b.max.y - b.min.y)}
+            fill="#f59e0b"
+            fillOpacity=".15"
+            stroke="#b45309"
+            strokeWidth="3"
+            strokeDasharray="9 6"
+          />
+          <text
+            x={px((b.min.x + b.max.x) / 2)}
+            y={py(b.max.y) - 10}
+            className="map-item"
+          >
+            태그 위 가림막 · 시험용
+          </text>
+        </g>
+      ))}
       {world.drone.enabled && (
         <g
           transform={`translate(${px(world.drone.pose.x)} ${py(world.drone.pose.y)})`}
@@ -404,7 +500,9 @@ function FieldView({
             BAT
           </text>
           <text y="100" className="map-item">
-            박쥐 · 관측 모의
+            {world.drone.strategy === 'active'
+              ? '박쥐 · 시야 탐색'
+              : '박쥐 · 중앙 관측'}
           </text>
         </g>
       )}
@@ -422,7 +520,7 @@ function FieldView({
 }
 
 export default function MissionSimulator() {
-  const [world, setWorld] = useState<World>(() => createWorld());
+  const [world, setWorld] = useState<World>(() => createWorld('drone'));
   const worldRef = useRef<World>(world);
   const [running, setRunning] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -605,7 +703,7 @@ export default function MissionSimulator() {
               <p>
                 {world.observer.mode === 'localization'
                   ? '로봇 ID·위치·방향으로 지상팀의 운반을 계획합니다.'
-                  : '박쥐 관측을 가정한 좌표 추적 모의 · 실제 비행 제어 미연결.'}
+                  : '가려진 위치를 다시 찾고, 확인된 물체부터 운반합니다.'}
               </p>
             </div>
             <div className="score-total">
@@ -736,6 +834,25 @@ export default function MissionSimulator() {
                   지금 조기 종료 · 최종 채점
                 </button>
               </section>
+              <AerialPanel
+                world={world}
+                change={(fn) => {
+                  fn(worldRef.current);
+                  publish();
+                }}
+                compare={(mode) => {
+                  const next = createWorld(
+                    mode === 'none' ? 'localization' : 'drone',
+                  );
+                  next.observer.missingId = 'H2';
+                  next.drone.occlusionId = 'H2';
+                  if (mode !== 'none') next.drone.strategy = mode;
+                  worldRef.current = next;
+                  setSelectedId('H2');
+                  setRunning(true);
+                  publish();
+                }}
+              />
               <section className="control-card">
                 <h2>
                   지상팀 <small>{world.robots.length}대</small>
@@ -850,7 +967,7 @@ export default function MissionSimulator() {
                     <Camera size={16} />
                     <span>
                       <strong>실시간 좌표 추적</strong>
-                      <small>드론 없음 · 기본</small>
+                      <small>기본 위치 입력만 사용</small>
                     </span>
                   </button>
                   <button
@@ -861,7 +978,7 @@ export default function MissionSimulator() {
                     <Radio size={16} />
                     <span>
                       <strong>박쥐 드론 1대</strong>
-                      <small>이륙·상공 관측</small>
+                      <small>시야 탐색·가림 복구</small>
                     </span>
                   </button>
                 </div>
@@ -884,9 +1001,7 @@ export default function MissionSimulator() {
                       publish();
                     }}
                   />{' '}
-                  {world.observer.mode === 'localization'
-                    ? '전체 위치 입력 끊김 시험'
-                    : '드론 영상 끊김 시험'}
+                  전체 위치 입력 끊김 시험
                 </label>
                 {world.observer.frameAge > 0.3 && (
                   <p className="fault-message">관측 300ms 초과 · 지상팀 대기</p>
@@ -902,12 +1017,14 @@ export default function MissionSimulator() {
                       publish();
                     }}
                   />{' '}
-                  선택 로봇 태그 누락 시험
+                  선택 로봇 기본 위치 입력 누락
                 </label>
                 {world.observer.missingId && (
                   <p className="fault-message">
-                    {world.observer.missingId} 누락 · 충돌 예방을 위해 지상팀
-                    즉시 대기
+                    {world.observer.missingId} 기본 입력 누락 ·{' '}
+                    {world.drone.recoveredIds.includes(world.observer.missingId)
+                      ? '드론 관측으로 복구'
+                      : '대체 관측 확보 필요'}
                   </p>
                 )}
               </section>

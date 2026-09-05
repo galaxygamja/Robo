@@ -22,12 +22,11 @@ export default function PositionMonitor({ world }: { world: World }) {
             y: p.y_mm,
             heading: p.heading_rad,
             ageMs: (world.elapsed - p.at) * 1000,
-            state:
-              world.observer.missingId === r.id
-                ? 'missing'
-                : world.elapsed - p.at > 0.3
-                  ? 'stale'
-                  : 'observed',
+            state: world.observer.unavailableIds.includes(r.id)
+              ? 'missing'
+              : world.elapsed - p.at > 0.3
+                ? 'stale'
+                : 'observed',
           },
         ]
       : [];
@@ -116,6 +115,7 @@ export default function PositionMonitor({ world }: { world: World }) {
                 <th>x / y mm</th>
                 <th>방향</th>
                 <th>상태 / 나이</th>
+                {!current && <th>관측원</th>}
               </tr>
             </thead>
             <tbody>
@@ -137,11 +137,20 @@ export default function PositionMonitor({ world }: { world: World }) {
                     )[p.state] ?? p.state}{' '}
                     / {p.ageMs === null ? '—' : Math.round(p.ageMs)}ms
                   </td>
+                  {!current && (
+                    <td>
+                      {world.observer.poses[p.id]?.source === 'drone'
+                        ? '박쥐'
+                        : '기본 입력'}
+                    </td>
+                  )}
                 </tr>
               ))}
               {!poses.length && (
                 <tr>
-                  <td colSpan={4}>시뮬레이션 시작 또는 검출 JSONL 불러오기</td>
+                  <td colSpan={current ? 4 : 5}>
+                    시뮬레이션 시작 또는 검출 JSONL 불러오기
+                  </td>
                 </tr>
               )}
             </tbody>
