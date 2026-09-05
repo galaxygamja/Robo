@@ -2,9 +2,84 @@ import {
   createWorld,
   scoreWorld,
   clearance,
+  advance,
+  collisionReason,
   type ObservationMode,
   type World,
 } from './mission.ts';
+
+export type ComparisonMode = 'none' | 'hover' | 'active';
+export type ComparisonScenario = World['scenario'];
+export const SCENARIO_LABEL: Record<ComparisonScenario, string> = {
+  normal: '정상 입력 · 고장 없음',
+  intermittent: '간헐 누락 · H2 입력 10초마다 1.2초 중단',
+  occlusion: '가림 복구 시험 · H2 입력 지속 중단',
+};
+export const MODE_LABEL: Record<ComparisonMode, string> = {
+  none: '드론 없음',
+  hover: '중앙 관측',
+  active: '이동 관측',
+};
+export function createComparison(
+  mode: ComparisonMode,
+  scenario: ComparisonScenario = 'normal',
+  optimize = true,
+): World {
+  const world = createWorld(mode === 'none' ? 'localization' : 'drone');
+  if (mode !== 'none') world.drone.strategy = mode;
+  world.scenario = scenario;
+  world.coordination.enabled = optimize;
+  if (scenario === 'occlusion') {
+    world.observer.missingId = 'H2';
+    world.drone.occlusionId = 'H2';
+  }
+  return world;
+}
+export function comparisonResult(
+  world: World,
+  collisions: number,
+  minimumClearance: number,
+) {
+  return {
+    mode: (world.drone.enabled
+      ? world.drone.strategy
+      : 'none') as ComparisonMode,
+    scenario: world.scenario,
+    optimized: world.coordination.enabled,
+    time: world.elapsed,
+    remaining: 120 - world.elapsed,
+    score: scoreWorld(world.items).points,
+    completed: world.robots.every((r) => r.phase === 'complete'),
+    distance: world.robots.reduce((sum, r) => sum + r.distanceTravelled, 0),
+    rotation: world.robots.reduce((sum, r) => sum + r.rotationRadians, 0),
+    trafficWait: world.robots.reduce((sum, r) => sum + r.blockedSeconds, 0),
+    inputHold: world.drone.holdSeconds,
+    aerialRecovery: world.drone.recoveredRobotSeconds,
+    shortcuts: world.coordination.routeShortcuts,
+    staging: world.coordination.stagingChanges,
+    taskReorders: world.robots.reduce((sum, r) => sum + r.taskReorders, 0),
+    collisions,
+    minimumClearanceMm: minimumClearance * 1000,
+  };
+}
+export type ComparisonResult = ReturnType<typeof comparisonResult>;
+// Runs in a dedicated browser worker (or the CLI), never changes the visible
+// match or sends device commands. Every number is measured from this engine.
+export function runComparison(
+  mode: ComparisonMode,
+  scenario: ComparisonScenario,
+  optimize = true,
+): ComparisonResult {
+  const world = createComparison(mode, scenario, optimize);
+  let collisions = 0,
+    minimumClearance = Infinity;
+  while (!world.ended) {
+    advance(world);
+    collisions += world.robots.filter((r) => collisionReason(world, r)).length;
+    minimumClearance = Math.min(minimumClearance, clearance(world));
+  }
+  return comparisonResult(world, collisions, minimumClearance);
+}
 
 // One repeatable stress fixture, not a promise for arbitrary fleet layouts.
 export function createExperiment(
@@ -35,11 +110,14 @@ export function createExperiment(
 
 export function experimentReport(world: World) {
   return {
-    schema: 'robo-synthetic-experiment-v2',
+    schema: 'robo-synthetic-experiment-v3',
     device_io: false,
     model:
       'ideal_geometry_with_observation_health_gate_not_physical_controller',
     field_layout: 'practice_reference_B1_B4_unconfirmed',
+    scenario: world.scenario,
+    scheduled_missing_id: world.scheduledMissingId,
+    coordination: world.coordination,
     observation: {
       mode: world.observer.mode,
       delay_ms: world.observer.delayMs,
@@ -87,7 +165,11 @@ export function experimentReport(world: World) {
       phase: r.phase,
       completed_tasks: r.served,
       recovery_attempts: r.recoveryAttempts,
-      observed_task_reorders: r.taskReorders,
+      task_reorders: r.taskReorders,
+      distance_m: r.distanceTravelled,
+      rotation_rad: r.rotationRadians,
+      traffic_wait_s: r.blockedSeconds,
+      completed_at_s: r.completedAt,
       waiting_for: r.blockedBy,
     })),
     logs: world.logs,

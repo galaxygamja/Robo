@@ -55,6 +55,7 @@ export type DroneState = {
   observations: Record<string, PoseSample>;
   objects: Record<string, ObjectSighting>;
   visibleRobots: string[];
+  captureStreaks: Record<string, { sequence: number; streak: number }>;
   visibleObjects: string[];
   recoveredIds: string[];
   recoveredRobotSeconds: number;
@@ -115,6 +116,7 @@ export function createDrone(enabled: boolean): DroneState {
     queue: [],
     observations: {},
     objects: {},
+    captureStreaks: {},
     visibleRobots: [],
     visibleObjects: [],
     recoveredIds: [],
@@ -212,7 +214,7 @@ export function sceneOccluders(world: World): Occluder[] {
   if (!r) return [];
   // Fixed overhead obstruction at the selected robot's initial position.
   // It blocks light, not floor travel; leaving it changes the available view.
-  const origin = r.trail[0];
+  const origin = world.initialRobotPoses[r.id];
   return [
     {
       id: 'test-hood',
@@ -226,9 +228,11 @@ function missionTargets(world: World): Target[] {
     const seen = world.observer.poses[r.id];
     const point = seen
       ? { x: seen.x_mm / 1000, y: seen.y_mm / 1000 }
-      : r.trail[0];
+      : world.initialRobotPoses[r.id];
     const baseMissing =
-      world.observer.missingId === r.id || world.observer.noiseMm > 1;
+      world.observer.missingId === r.id ||
+      world.scheduledMissingId === r.id ||
+      world.observer.noiseMm > 1;
     const age = seen ? world.elapsed - seen.at : 1;
     const precision = ['align-pick', 'align-drop', 'verify-release'].includes(
       r.phase,
@@ -253,7 +257,7 @@ function missionTargets(world: World): Target[] {
     // Job destinations and initial task map are known planning data. Unseen
     // moving-object ground truth is never fed to the viewpoint optimizer.
     const last = world.drone.objects[job.itemId];
-    const initial = world.items.find((i) => i.id === job.itemId);
+    const initial = world.initialItems.find((i) => i.id === job.itemId);
     const taskPoint =
       r.payload || initial?.kind === 'cube'
         ? job.drop
@@ -331,6 +335,7 @@ export function advanceAerial(world: World, dt: number) {
     d.reason = '영상·정지 상태 확인 대기';
     d.visibleRobots = [];
     d.visibleObjects = [];
+    d.captureStreaks = {};
     return;
   }
   const boxes = sceneOccluders(world);
@@ -406,6 +411,7 @@ export function advanceAerial(world: World, dt: number) {
       poses: {},
       objects: {},
     };
+    const captureStreaks: DroneState['captureStreaks'] = {};
     if (packet.valid) {
       for (const r of world.robots) {
         if (!canObserve(camera, { ...r.pose, z: AERIAL.tagHeight }, boxes))
@@ -429,9 +435,9 @@ export function advanceAerial(world: World, dt: number) {
           )
         )
           continue;
-        const prev = d.objects[item.id];
-        const streak =
-          prev && world.elapsed - prev.at < 0.25 ? prev.streak + 1 : 1;
+        const prev = d.captureStreaks[item.id];
+        const streak = prev?.sequence === d.sequence - 1 ? prev.streak + 1 : 1;
+        captureStreaks[item.id] = { sequence: d.sequence, streak };
         packet.objects[item.id] = {
           id: item.id,
           x_mm: item.x * 1000,
@@ -444,6 +450,7 @@ export function advanceAerial(world: World, dt: number) {
         };
       }
     }
+    d.captureStreaks = captureStreaks;
     d.queue.push(packet);
   }
   while (

@@ -88,7 +88,7 @@ void test('active drone keeps the entire mission collision-free after recovering
   }
   assert.ok(w.elapsed < 120);
   assert.equal(scoreWorld(w.items).points, 160);
-  assert.ok(w.drone.recoveredRobotSeconds > 60);
+  assert.ok(w.drone.recoveredRobotSeconds > w.elapsed - 5);
   assert.ok(minimum >= SPEC.margin - 1e-8);
 });
 
@@ -210,7 +210,7 @@ void test('emergency stop and match finish freeze drone position as well as grou
   assert.equal(JSON.stringify(w), snapshot);
 });
 
-void test('confirmed fresh aerial inventory can reorder only remaining owned cylinder tasks', () => {
+void test('route cost uses the known map and fresh inventory without changing task ownership or cube order', () => {
   const w = createWorld('drone');
   w.elapsed = 14;
   w.drone.pose = { x: 0.57, y: 0.61 };
@@ -230,7 +230,7 @@ void test('confirmed fresh aerial inventory can reorder only remaining owned cyl
   const h2 = w.robots.find((r) => r.id === 'H2')!,
     ids = h2.jobs.map((j) => j.itemId).toSorted();
   advance(w);
-  assert.equal(h2.jobs[0].itemId, 'Y2');
+  assert.equal(h2.jobs[0].itemId, 'G2');
   assert.equal(h2.taskReorders, 1);
   assert.deepEqual(h2.jobs.map((j) => j.itemId).toSorted(), ids);
   assert.equal(w.robots[0].jobs[0].itemId, 'C1');

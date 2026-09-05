@@ -94,6 +94,10 @@ export type Robot = {
   recoveryTarget: Pose | null;
   recoveryAttempts: number;
   taskReorders: number;
+  distanceTravelled: number;
+  blockedSeconds: number;
+  completedAt: number | null;
+  rotationRadians: number;
 };
 export type LogEntry = {
   time: number;
@@ -134,6 +138,17 @@ export type World = {
     speedScale: number;
   };
   drone: DroneState;
+  initialItems: Item[];
+  initialRobotPoses: Record<string, Pose>;
+  coordination: {
+    enabled: boolean;
+    routeShortcuts: number;
+    stagingChanges: number;
+    plannedDistanceSaved: number;
+    taskPlans: number;
+  };
+  scenario: 'normal' | 'intermittent' | 'occlusion';
+  scheduledMissingId: string | null;
 };
 export const ZONES: Record<
   ZoneId,
@@ -307,6 +322,10 @@ export function createWorld(
     recoveryTarget: null,
     recoveryAttempts: 0,
     taskReorders: 0,
+    distanceTravelled: 0,
+    blockedSeconds: 0,
+    completedAt: null,
+    rotationRadians: 0,
   });
   const defaults: FleetSpec[] = [
     {
@@ -443,6 +462,19 @@ export function createWorld(
       speedScale: 1,
     },
     drone: createDrone(observationMode === 'drone'),
+    initialItems: items.map((item) => ({ ...item })),
+    initialRobotPoses: Object.fromEntries(
+      robots.map((robot) => [robot.id, { ...robot.pose }]),
+    ),
+    coordination: {
+      enabled: true,
+      routeShortcuts: 0,
+      stagingChanges: 0,
+      plannedDistanceSaved: 0,
+      taskPlans: 0,
+    },
+    scenario: 'normal',
+    scheduledMissingId: null,
   };
 }
 
@@ -698,6 +730,125 @@ function segmentFree(
   );
   return !blockedShapes(shapes, obstacles);
 }
+
+// Both modes share the same optimizer and known practice map. An optimization
+// gain is not attributed to owning a drone. A drone adds an observation source.
+export function coordinationUsable(world: World): boolean {
+  return (
+    world.coordination.enabled &&
+    !world.observer.lost &&
+    !world.emergencyStopped &&
+    !world.observer.unavailableIds.length &&
+    !world.observer.conflictingIds.length &&
+    world.robots.every((r) => {
+      const pose = world.observer.poses[r.id];
+      return !!pose && world.elapsed - pose.at <= 0.3 && pose.errorMm <= 1;
+    })
+  );
+}
+
+export function smoothObservedPath(
+  world: World,
+  robot: Robot,
+  path: Point[],
+): Point[] {
+  if (path.length < 2 || !coordinationUsable(world)) return path;
+  const obstacles = obstacleList(world, robot),
+    result: Point[] = [];
+  let current: Pose = robot.pose,
+    index = 0;
+  while (index < path.length) {
+    let farthest = index;
+    for (let j = path.length - 1; j > index; j--) {
+      if (segmentFree(current, path[j], robot, world, obstacles)) {
+        farthest = j;
+        break;
+      }
+    }
+    if (!segmentFree(current, path[farthest], robot, world, obstacles))
+      return [];
+    result.push(path[farthest]);
+    current = { ...path[farthest], heading: robot.pose.heading };
+    index = farthest + 1;
+  }
+  const length = (points: Point[]) =>
+    points.reduce(
+      (sum, p, i) => sum + dist(i ? points[i - 1] : robot.pose, p),
+      0,
+    );
+  const saved = length(path) - length(result);
+  if (saved > 0.0001) {
+    world.coordination.routeShortcuts++;
+    world.coordination.plannedDistanceSaved += saved;
+  }
+  return result;
+}
+export function routeSegmentSafe(
+  world: World,
+  robot: Robot,
+  start: Pose,
+  end: Point,
+): boolean {
+  return segmentFree(start, end, robot, world, obstacleList(world, robot));
+}
+
+// Replace a long fixed staging detour only when a nearby escape point permits
+// the complete loaded turn and subsequent straight corridor to the drop pose.
+export function observedStaging(world: World, robot: Robot, job: Job): Point {
+  const baseline = robot.staging,
+    destination = approach(job.drop, dropHeading(job));
+  if (!coordinationUsable(world)) return baseline;
+  const obstacles = obstacleList(world, robot);
+  const baselineLength =
+    dist(robot.pose, baseline) + dist(baseline, destination);
+  const candidates = [0.08, 0.12, 0.16, 0.2].map((reach) =>
+    tip(robot.pose, -reach),
+  );
+  let best = baseline,
+    bestLength = baselineLength;
+  for (const candidate of candidates) {
+    const length = dist(robot.pose, candidate) + dist(candidate, destination);
+    if (
+      length + 0.04 >= bestLength ||
+      !segmentFree(robot.pose, candidate, robot, world, obstacles)
+    )
+      continue;
+    const turn = normalizeAngle(destination.heading - robot.pose.heading);
+    let free = true;
+    for (let i = 0; i <= 64; i++) {
+      if (
+        safePose(
+          robot,
+          world.items,
+          { ...candidate, heading: robot.pose.heading + (turn * i) / 64 },
+          obstacles,
+        )
+      ) {
+        free = false;
+        break;
+      }
+    }
+    if (
+      !free ||
+      !segmentFree(
+        { ...candidate, heading: destination.heading },
+        destination,
+        robot,
+        world,
+        obstacles,
+      )
+    )
+      continue;
+    best = candidate;
+    bestLength = length;
+  }
+  if (best !== baseline) {
+    world.coordination.stagingChanges++;
+    world.coordination.plannedDistanceSaved += baselineLength - bestLength;
+    log(world, `${robot.name} · 충돌 검사된 짧은 회전 대기점 사용`);
+  }
+  return best;
+}
 // Eight-connected A*: all other bodies + loose/delivered objects block the grid.
 // Pose checks run again per physics step; stale paths never override collision checks.
 export function planPath(world: World, robot: Robot, goal: Point): Point[] {
@@ -815,44 +966,86 @@ function unlock(world: World, robot: Robot) {
     if (world.locks[key] === robot.id) delete world.locks[key];
   });
 }
-function startJob(world: World, robot: Robot) {
-  const current = robot.jobs[robot.jobIndex];
+export function optimizePendingJobs(world: World, robot: Robot) {
+  if (!coordinationUsable(world) || robot.payload || robot.role !== 'beaver')
+    return;
+  const remaining = robot.jobs.slice(robot.jobIndex);
+  // Never reorder the loaded cube magazine or change item ownership/drop slots.
   if (
-    world.drone.enabled &&
-    world.drone.strategy === 'active' &&
-    current &&
-    world.items.find((i) => i.id === current.itemId)?.kind === 'cylinder'
-  ) {
-    const recentlySeen = (id: string) => {
-      const seen = world.drone.objects[id];
-      return (
-        !!seen?.confirmed &&
-        world.elapsed - seen.at < 0.5 &&
-        world.drone.calibrationValid &&
-        !world.drone.videoLost
-      );
-    };
-    if (!recentlySeen(current.itemId)) {
-      const next = robot.jobs.findIndex(
-        (job, i) =>
-          i > robot.jobIndex &&
-          recentlySeen(job.itemId) &&
-          world.items.find((item) => item.id === job.itemId)?.kind ===
-            'cylinder',
-      );
-      if (next >= 0) {
-        [robot.jobs[robot.jobIndex], robot.jobs[next]] = [
-          robot.jobs[next],
-          robot.jobs[robot.jobIndex],
-        ];
-        robot.taskReorders++;
-        log(
-          world,
-          `${robot.name} · 드론이 확인한 ${robot.jobs[robot.jobIndex].itemId}부터 운반`,
-        );
-      }
+    remaining.length < 2 ||
+    remaining.length > 6 ||
+    remaining.some(
+      (job) =>
+        world.initialItems.find((item) => item.id === job.itemId)?.kind !==
+        'cylinder',
+    )
+  )
+    return;
+  const measured = world.observer.poses[robot.id];
+  const origin = { x: measured.x_mm / 1000, y: measured.y_mm / 1000 };
+  const pointOf = (job: Job): Point => {
+    const initial = world.initialItems.find((item) => item.id === job.itemId)!;
+    const d = world.drone,
+      seen = d.objects[job.itemId];
+    return d.enabled &&
+      !d.videoLost &&
+      !d.calibrationLost &&
+      d.calibrationValid &&
+      d.visibleObjects.includes(job.itemId) &&
+      seen?.confirmed &&
+      world.elapsed - seen.at <= 0.3 &&
+      seen.kind === initial.kind &&
+      seen.color === initial.color
+      ? { x: seen.x_mm / 1000, y: seen.y_mm / 1000 }
+      : initial;
+  };
+  const cost = (jobs: Job[]) => {
+    let current: Point = origin,
+      total = 0;
+    for (const job of jobs) {
+      const object = pointOf(job),
+        pick = approach(object, object.y > 0.63 ? Math.PI : 0);
+      const drop = approach(job.drop, dropHeading(job));
+      total +=
+        dist(current, pick) +
+        dist(pick, robot.staging) +
+        dist(robot.staging, drop) +
+        0.11;
+      current = tip(drop, -0.11);
     }
+    return total + dist(current, robot.park);
+  };
+  let best = remaining,
+    bestCost = cost(remaining);
+  const visit = (prefix: Job[], rest: Job[]) => {
+    if (!rest.length) {
+      const candidateCost = cost(prefix);
+      if (candidateCost + 0.04 < bestCost) {
+        best = prefix;
+        bestCost = candidateCost;
+      }
+      return;
+    }
+    rest.forEach((job, index) =>
+      visit(
+        [...prefix, job],
+        rest.filter((_, i) => i !== index),
+      ),
+    );
+  };
+  visit([], remaining);
+  world.coordination.taskPlans++;
+  if (best !== remaining) {
+    robot.jobs.splice(robot.jobIndex, remaining.length, ...best);
+    robot.taskReorders++;
+    log(
+      world,
+      `${robot.name} · 남은 운반거리 비교: ${best.map((job) => job.itemId).join(' → ')}`,
+    );
   }
+}
+function startJob(world: World, robot: Robot) {
+  optimizePendingJobs(world, robot);
   const job = jobOf(robot);
   if (!job) {
     enter(robot, 'park');
@@ -893,6 +1086,9 @@ function move(world: World, robot: Robot, dt: number): boolean {
       robot.wait += dt;
       return false;
     }
+    robot.rotationRadians += Math.abs(
+      normalizeAngle(pose.heading - robot.pose.heading),
+    );
     robot.pose = pose;
     robot.path = [];
     return false;
@@ -908,7 +1104,11 @@ function move(world: World, robot: Robot, dt: number): boolean {
     return true;
   }
   if (robot.path.length === 0 && robot.wait >= 0.75) {
-    robot.path = planPath(world, robot, target);
+    robot.path = smoothObservedPath(
+      world,
+      robot,
+      planPath(world, robot, target),
+    );
     robot.wait = 0;
   }
   const next = robot.path[0];
@@ -936,6 +1136,7 @@ function move(world: World, robot: Robot, dt: number): boolean {
     y: (pose.y - robot.pose.y) / dt,
   };
   robot.pose = pose;
+  robot.distanceTravelled += step;
   robot.blockedBy = null;
   robot.wait = 0;
   if (dist(pose, next) < 0.0005) robot.path.shift();
@@ -1091,6 +1292,14 @@ export function advance(world: World, dt: number = SPEC.dt): World {
     return finish(world, '120초 종료 · 최종 배치 판정');
   }
   const observer = world.observer;
+  // Explicit repeatable sensor dropout scenario shared by ALL modes. It is
+  // never inserted into normal operation or the ordinary no-drone button.
+  world.scheduledMissingId =
+    world.scenario === 'intermittent' &&
+    world.elapsed >= 8 &&
+    (world.elapsed - 8) % 10 < 1.2
+      ? 'H2'
+      : null;
   // The observer can seek a new view while the ground team is held for missing
   // localization. A ground hold must not prevent the drone from recovering it.
   advanceAerial(world, step);
@@ -1103,7 +1312,8 @@ export function advance(world: World, dt: number = SPEC.dt): World {
       poses: {},
     };
     for (const [index, r] of world.robots.entries()) {
-      if (r.id === observer.missingId) continue;
+      if (r.id === observer.missingId || r.id === world.scheduledMissingId)
+        continue;
       const jitter = observer.sentSequence * 1.618 + index * 2.17;
       packet.poses[r.id] = {
         x_mm: r.pose.x * 1000 + Math.cos(jitter) * observer.noiseMm,
@@ -1153,7 +1363,10 @@ export function advance(world: World, dt: number = SPEC.dt): World {
     const job = jobOf(robot),
       item = job ? world.items.find((i) => i.id === job.itemId)! : null;
     if (robot.phase === 'to-pick') {
-      if (robot.role === 'hamster' && !lock(world, robot, '격리/LAB')) continue;
+      if (robot.role === 'hamster' && !lock(world, robot, '격리/LAB')) {
+        robot.blockedSeconds += step;
+        continue;
+      }
       if (move(world, robot, step)) enter(robot, 'align-pick');
     } else if (robot.phase === 'align-pick') {
       if (!extendArm(world, robot, step)) continue;
@@ -1189,7 +1402,9 @@ export function advance(world: World, dt: number = SPEC.dt): World {
         enter(robot, 'clear-pick');
         // Leave the crowded object row before rotating a loaded gripper.
         const staging =
-          robot.role === 'hamster' ? tip(robot.pose, -0.1) : robot.staging;
+          robot.role === 'hamster'
+            ? tip(robot.pose, -0.1)
+            : observedStaging(world, robot, job);
         assignTarget(robot, { ...staging, heading: robot.pose.heading });
       }
     } else if (robot.phase === 'clear-pick') {
@@ -1205,8 +1420,10 @@ export function advance(world: World, dt: number = SPEC.dt): World {
           robot,
           job.destination === 'LAB' ? '격리/LAB' : job.destination,
         )
-      )
+      ) {
+        robot.blockedSeconds += step;
         continue;
+      }
       if (move(world, robot, step)) enter(robot, 'align-drop');
     } else if (robot.phase === 'align-drop') {
       if (!extendArm(world, robot, step)) continue;
@@ -1255,6 +1472,7 @@ export function advance(world: World, dt: number = SPEC.dt): World {
     } else if (robot.phase === 'park') {
       if (move(world, robot, step)) {
         enter(robot, 'complete');
+        robot.completedAt = world.elapsed;
         unlock(world, robot);
       }
     }
@@ -1283,6 +1501,7 @@ export function advance(world: World, dt: number = SPEC.dt): World {
       dist(previousPose, robot.pose) < 1e-7 &&
       Math.abs(normalizeAngle(previousPose.heading - robot.pose.heading)) < 1e-7
     ) {
+      robot.blockedSeconds += step;
       robot.stagnant += step;
       if (
         ['to-pick', 'clear-pick', 'to-drop', 'retreat', 'park'].includes(

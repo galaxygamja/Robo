@@ -33,7 +33,11 @@ import {
 import ArenaSimulator from './arena-simulator';
 import PositionMonitor from './position-monitor';
 import SimulationLab from './simulation-lab';
-import { createExperiment } from '@/lib/experiments';
+import {
+  createExperiment,
+  createComparison,
+  SCENARIO_LABEL,
+} from '@/lib/experiments';
 import AerialPanel from './aerial-panel';
 import { footprint, sceneOccluders, REFERENCE_MARKERS } from '@/lib/aerial';
 import './mission.css';
@@ -544,11 +548,13 @@ export default function MissionSimulator() {
   const reset = useCallback(
     (mode?: ObservationMode) => {
       const observation = mode ?? worldRef.current.observer.mode;
+      const optimize = worldRef.current.coordination.enabled;
       worldRef.current = createExperiment(
         observation,
         worldRef.current.robots.length === 5 && observation !== 'drone' ? 5 : 4,
       );
-      setRunning(false);
+      worldRef.current.coordination.enabled = optimize;
+      setRunning(mode !== undefined);
       publish();
     },
     [publish],
@@ -772,6 +778,9 @@ export default function MissionSimulator() {
             </section>
             <aside className="mission-controls">
               <section className="control-card clock-card">
+                <p className={`scenario-badge scenario-${world.scenario}`}>
+                  {SCENARIO_LABEL[world.scenario]}
+                </p>
                 <div className="clock-row">
                   <span>남은 시간</span>
                   <strong>
@@ -779,6 +788,28 @@ export default function MissionSimulator() {
                     {(time % 60).toFixed(1).padStart(4, '0')}
                   </strong>
                 </div>
+                {running && world.elapsed < 4 && (
+                  <p className="compact-note">
+                    출발 준비 · 첫 로봇 출발까지{' '}
+                    {(4 - world.elapsed).toFixed(1)}초
+                  </p>
+                )}
+                {world.safetyReason && (
+                  <output className="position-warning">
+                    {world.safetyReason}
+                    {world.scenario === 'intermittent' &&
+                      ' · 입력 복구 후 자동 재개'}
+                  </output>
+                )}
+                {world.scenario !== 'normal' && (
+                  <button
+                    className="normal-restore"
+                    type="button"
+                    onClick={() => reset(world.observer.mode)}
+                  >
+                    고장 없는 정상 조건으로 복귀
+                  </button>
+                )}
                 <div className="mission-buttons">
                   <button
                     className="run-mission"
@@ -840,15 +871,10 @@ export default function MissionSimulator() {
                   fn(worldRef.current);
                   publish();
                 }}
-                compare={(mode) => {
-                  const next = createWorld(
-                    mode === 'none' ? 'localization' : 'drone',
-                  );
-                  next.observer.missingId = 'H2';
-                  next.drone.occlusionId = 'H2';
-                  if (mode !== 'none') next.drone.strategy = mode;
+                compare={(mode, scenario, optimize) => {
+                  const next = createComparison(mode, scenario, optimize);
                   worldRef.current = next;
-                  setSelectedId('H2');
+                  setSelectedId(scenario === 'normal' ? 'H1' : 'H2');
                   setRunning(true);
                   publish();
                 }}
