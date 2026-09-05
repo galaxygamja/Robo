@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -82,11 +83,20 @@ def default_data_path(filename: str) -> Path:
     raise FileNotFoundError(f"required Robo data file is missing: {filename}")
 
 
+def _is_finite_number(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 def _require_positive(section: str, values: dict[str, Any], keys: tuple[str, ...]) -> None:
     for key in keys:
         value = values[key]
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
-            raise ValueError(f"{section}.{key} must be positive, got {value!r}")
+        if not _is_finite_number(value) or value <= 0:
+            raise ValueError(f"{section}.{key} must be finite and positive, got {value!r}")
 
 
 def load_config(path: str | Path | None = None) -> AppConfig:
@@ -127,8 +137,11 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     if raw["field"]["grid_cell_m"] >= min(raw["field"]["width_m"], raw["field"]["height_m"]):
         raise ValueError("field.grid_cell_m is too large for the field")
     margin = raw["field"]["boundary_margin_m"]
-    if isinstance(margin, bool) or not isinstance(margin, (int, float)) or margin < 0:
-        raise ValueError("field.boundary_margin_m must not be negative")
+    if not _is_finite_number(margin) or margin < 0:
+        raise ValueError("field.boundary_margin_m must be finite and not negative")
+    for key in ("stop_on_tracking_loss", "stop_on_predicted_collision"):
+        if not isinstance(raw["safety"][key], bool):
+            raise ValueError(f"safety.{key} must be a boolean")
     for key in ("dashboard_port", "robot_udp_port"):
         port = raw["network"][key]
         if isinstance(port, bool) or not isinstance(port, int):

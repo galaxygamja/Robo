@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
 import robo_control.config as config_module
@@ -70,6 +71,51 @@ class ConfigTests(unittest.TestCase):
             self.load_modified("network", "dashboard_port", 65536)
         with self.assertRaises(ValueError):
             self.load_modified("network", "robot_udp_port", 9100.5)
+
+    def test_all_numeric_fields_reject_nonfinite_values(self) -> None:
+        for section, values in self.raw.items():
+            for key, value in values.items():
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    continue
+                for invalid in (float("nan"), float("inf"), float("-inf")):
+                    with self.subTest(section=section, key=key, invalid=invalid):
+                        with self.assertRaisesRegex(ValueError, "finite"):
+                            self.load_modified(section, key, invalid)
+
+    def test_numbers_too_large_for_runtime_are_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "finite"):
+            self.load_modified("mission", "duration_s", 10**400)
+
+    def test_safety_flags_require_json_booleans(self) -> None:
+        for key in ("stop_on_tracking_loss", "stop_on_predicted_collision"):
+            for invalid in (0, 1, "false", None):
+                with self.subTest(key=key, invalid=invalid):
+                    with self.assertRaisesRegex(ValueError, "boolean"):
+                        self.load_modified("safety", key, invalid)
+            config = self.load_modified("safety", key, False)
+            self.assertIs(False, getattr(config.safety, key))
+
+    def test_scenario_rejects_unachievable_grid_goal_tolerance(self) -> None:
+        config = load_config()
+        config = replace(config, robot=replace(config.robot, goal_tolerance_m=0.001))
+        raw = json.loads(default_scenario_path().read_text(encoding="utf-8"))
+        raw["tasks"] = [{"id": "T1", "x": 0.10, "y": 0.14}]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scenario.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "T1.*goal_tolerance_m"):
+                load_scenario(path, config)
+
+    def test_exact_grid_goal_accepts_small_tolerance(self) -> None:
+        config = load_config()
+        config = replace(config, robot=replace(config.robot, goal_tolerance_m=0.001))
+        raw = json.loads(default_scenario_path().read_text(encoding="utf-8"))
+        raw["tasks"] = [{"id": "T1", "x": 0.11, "y": 0.15}]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scenario.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            scenario = load_scenario(path, config)
+        self.assertEqual("T1", scenario.tasks[0].id)
 
 
 if __name__ == "__main__":

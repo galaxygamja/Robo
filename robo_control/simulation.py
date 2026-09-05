@@ -110,6 +110,23 @@ def load_scenario(path: str | Path | None, config: AppConfig) -> Scenario:
         if not (0.0 <= point.x <= config.field.width_m and 0.0 <= point.y <= config.field.height_m):
             raise ValueError(f"{label} is outside the field")
 
+    # v0.1 routes finish at cell centres, not the exact requested coordinates.
+    # Reject a tolerance that cannot accept that endpoint instead of running
+    # forever at the last cell. Exact cell-centre goals may use small tolerances.
+    grid = GridSpec(
+        config.field.width_m,
+        config.field.height_m,
+        config.field.grid_cell_m,
+        config.robot.radius_m + config.field.boundary_margin_m,
+    )
+    for task in tasks:
+        endpoint = grid.cell_to_world(grid.world_to_cell(task.position))
+        if task.position.distance_to(endpoint) > config.robot.goal_tolerance_m:
+            raise ValueError(
+                f"{task.id} is farther from its grid endpoint than robot.goal_tolerance_m; "
+                "use a grid-centre goal, a finer grid, or a larger tolerance"
+            )
+
     return Scenario(
         name=str(raw.get("name", scenario_path.stem)),
         start_zone=start_zone,

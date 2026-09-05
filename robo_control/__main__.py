@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
-import time
 import webbrowser
 from pathlib import Path
 
@@ -39,14 +39,20 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_headless(engine: SimulationEngine, step_s: float) -> int:
-    if step_s <= 0:
-        raise ValueError("--headless-step must be positive")
+    if not math.isfinite(step_s) or step_s <= 0:
+        raise ValueError("--headless-step must be finite and positive")
+    effective_step_s = min(step_s, 0.25) * engine.config.mission.simulation_speed
+    if not math.isfinite(effective_step_s) or effective_step_s <= 0:
+        raise ValueError("effective headless step must be finite and positive")
     engine.start()
-    max_steps = int(engine.config.mission.duration_s / step_s) + 2
-    for _ in range(max_steps):
+    # The engine clamps wall-time steps and applies simulation_speed. Follow
+    # its actual status/time instead of assuming duration / requested_step.
+    # A paused, unreachable mission cannot resume without external input.
+    while engine.status.value == "running":
+        previous_elapsed_s = engine.elapsed_s
         engine.step(step_s)
-        if engine.status.value not in ("running", "paused"):
-            break
+        if engine.status.value == "running" and engine.elapsed_s <= previous_elapsed_s:
+            raise RuntimeError("headless simulation time did not advance")
     snapshot = engine.snapshot()
     print(json.dumps(snapshot, ensure_ascii=False, indent=2))
     return 0 if snapshot["status"] == "completed" and snapshot["metrics"]["collision_count"] == 0 else 2
