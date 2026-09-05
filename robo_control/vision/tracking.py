@@ -29,6 +29,7 @@ class PoseTracker:
         self.sequence = 0
         self.stamp = -math.inf
         self.now = -math.inf
+        self.closed = False
 
     def update(self, record: dict, now_s: float) -> dict:
         if not isinstance(now_s, (int, float)) or isinstance(now_s, bool) or not math.isfinite(now_s) or now_s < self.now:
@@ -40,13 +41,21 @@ class PoseTracker:
         stamp = record.get("captured_at_s")
         source = record.get("source_name")
         reason = None
-        if not isinstance(source, str) or not source or (self.source is not None and source != self.source):
+        if self.closed:
+            reason = "session_closed"
+        elif record.get("status") == "source_closed":
+            self.closed = True
+            reason = "source_closed"
+        elif not isinstance(source, str) or not source or (self.source is not None and source != self.source):
             reason = "source_changed"
         elif type(sequence) is not int or sequence <= self.sequence:
             reason = "out_of_order_sequence"
         elif isinstance(stamp, bool) or not isinstance(stamp, (int, float)) or not math.isfinite(stamp):
             reason = "invalid_timestamp"
-        elif not self.stamp < stamp <= now_s or now_s - stamp > self.stale_after_s:
+        # A coarse host clock can give several fast-decoded frames the same
+        # timestamp. Sequence must still advance; replay motion below uses its
+        # independently ordered media clock, not host decode duration.
+        elif not self.stamp <= stamp <= now_s or now_s - stamp > self.stale_after_s:
             reason = "stale_or_out_of_order_timestamp"
         else:
             self.source, self.sequence, self.stamp = source, sequence, stamp
@@ -103,6 +112,7 @@ class PoseTracker:
         usable = (len(accepted) == len(self.ids) and not invalid and not record.get("unknown_tag_ids")
                   and not record.get("duplicate_tag_ids") and record.get("observation_complete") is True)
         return {"tracks": tracks, "tracking_rejections": invalid, "tracking_frame_reason": reason,
+                "tracking_session_closed": self.closed,
                 "observation_usable": usable, "stop_required": not usable,
                 "measurement_setup_marked_verified": usable and record.get("hardware_verified") is True
                     and isinstance(record.get("tag_size_mm"), (int, float))
@@ -113,3 +123,7 @@ class PoseTracker:
     def snapshot(self, now_s: float) -> dict:
         """Watchdog tick for a consumer even when no camera frames arrive."""
         return self.update({"status": "no_frame"}, now_s)
+
+    def close(self, now_s: float) -> dict:
+        """End this camera session permanently; reconnect with a new tracker."""
+        return self.update({"status": "source_closed"}, now_s)

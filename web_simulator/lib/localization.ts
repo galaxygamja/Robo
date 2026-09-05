@@ -8,6 +8,10 @@ export type MeasuredPose = {
   state: string;
 };
 export type MeasuredObject = {
+  id?: string;
+  state?: string;
+  owner?: string | null;
+  uncertain?: boolean;
   color: string;
   kind: string;
   x: number;
@@ -98,7 +102,11 @@ export function parsePositionLog(text: string): PositionFrame[] {
       });
     }
     const objects: MeasuredObject[] = [];
-    for (const p of r.objects ?? []) {
+    const objectRows = r.object_tracks ?? r.objects ?? [];
+    if (!Array.isArray(objectRows) || objectRows.length > 1000)
+      throw new Error('잘못된 물체 목록');
+    const objectIds = new Set<string>();
+    for (const p of objectRows) {
       if (
         !tuple(p.center_mm) ||
         typeof p.color !== 'string' ||
@@ -108,7 +116,22 @@ export function parsePositionLog(text: string): PositionFrame[] {
       const [x, y] = p.center_mm;
       if (x < 0 || y < 0 || x > field[0] || y > field[1])
         throw new Error('경기장 밖 물체');
-      objects.push({ color: p.color, kind: p.kind, x, y });
+      if (
+        p.object_id !== undefined &&
+        (typeof p.object_id !== 'string' || objectIds.has(p.object_id))
+      )
+        throw new Error('중복·잘못된 물체 ID');
+      if (p.object_id) objectIds.add(p.object_id);
+      objects.push({
+        color: p.color,
+        kind: p.kind,
+        x,
+        y,
+        id: p.object_id,
+        state: typeof p.state === 'string' ? p.state : 'candidate',
+        owner: typeof p.owner_robot_id === 'string' ? p.owner_robot_id : null,
+        uncertain: p.identity_uncertain === true,
+      });
     }
     return {
       sequence: seq,

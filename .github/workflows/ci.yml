@@ -53,6 +53,8 @@ jobs:
         run: python -m robo_control --headless > headless-result.json
       - name: Senior qualifier servo and sensor smoke test
         run: python -m robo_control.qualifier --compact > qualifier-result.json
+      - name: Measured-pose mock loop with independent command expiry
+        run: python -m robo_control.control_loop --demo --robots 5 --compact
 
   package-smoke:
     runs-on: ubuntu-latest
@@ -73,6 +75,7 @@ jobs:
           "$RUNNER_TEMP/wheel-env/bin/python" -c "from robo_control.config import load_config; from robo_control.simulation import load_scenario; c=load_config(); s=load_scenario(None,c); assert len(s.robots)==c.mission.robot_count==6"
           "$RUNNER_TEMP/wheel-env/bin/robo-control" --headless > "$RUNNER_TEMP/wheel-headless.json"
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.qualifier --compact > "$RUNNER_TEMP/wheel-qualifier.json"
+          "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.control_loop --demo --robots 5 --compact
       - name: Install and smoke-test sdist outside checkout
         run: |
           python -m venv "$RUNNER_TEMP/sdist-env"
@@ -81,6 +84,7 @@ jobs:
           "$RUNNER_TEMP/sdist-env/bin/python" -c "from robo_control.config import load_config; from robo_control.simulation import load_scenario; c=load_config(); s=load_scenario(None,c); assert len(s.robots)==c.mission.robot_count==6"
           "$RUNNER_TEMP/sdist-env/bin/robo-control" --headless > "$RUNNER_TEMP/sdist-headless.json"
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.qualifier --compact > "$RUNNER_TEMP/sdist-qualifier.json"
+          "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.control_loop --demo --robots 5 --compact
 
   windows-launcher-smoke:
     runs-on: windows-latest

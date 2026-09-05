@@ -870,3 +870,34 @@
     max-height: 200px;
   }
 }
+.simulation-lab {
+  margin: 20px 0;
+}
+.lab-controls {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+.lab-controls label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  color: #cbd5e1;
+}
+.lab-controls select,
+.lab-controls button {
+  border: 1px solid #3b5268;
+  background: #132b3e;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  min-height: 42px;
+}
+.lab-controls .lab-estop {
+  border-color: #f87171;
+  background: #4a1925;
+  color: #fecaca;
+}

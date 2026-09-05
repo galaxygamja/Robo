@@ -17,6 +17,7 @@ from .pipeline import FrameProcessor, FrameRejected
 from .tags import AprilTagDetector, TagDetectorConfig, TagDetectionError, default_tag_config_path
 from .tracking import PoseTracker
 from .colors import ColorDetector
+from .object_tracking import ObjectTracker
 from .map_view import draw_position_map
 
 
@@ -69,6 +70,14 @@ def _parser() -> argparse.ArgumentParser:
     detect.add_argument("--require-complete-observation", action="store_true",
                         help="exit 1 unless every processed frame sees all configured robots exactly once")
     detect.add_argument("--track", action="store_true", help="append measured-pose history and fail-closed freshness gates")
+    detect.add_argument("--object-confirm-frames", type=_positive_int, default=3,
+                        help="consecutive colour detections needed for a new object identity (default: 3)")
+    detect.add_argument("--object-max-distance-mm", type=float, default=40.0,
+                        help="maximum same-kind/colour association distance (default: 40 mm)")
+    detect.add_argument("--object-miss-timeout-ms", type=float, default=500.0,
+                        help="expire missing object identities after this gap (default: 500 ms)")
+    detect.add_argument("--object-ambiguity-mm", type=float, default=5.0,
+                        help="latch uncertain identity when association alternatives are this close (default: 5 mm)")
     detect.add_argument("--colors", type=Path, help="HSV/metric contour profile JSON; enables colour candidates")
     detect.add_argument("--moving-camera", action="store_true", help="reject static calibration for moving cameras (dynamic calibration not yet implemented)")
 
@@ -285,6 +294,11 @@ def _detect(args: argparse.Namespace) -> int:
     detector = AprilTagDetector(tag_config, calibration)
     processor = FrameProcessor(calibration, args.max_age_ms / 1000.0)
     tracker = PoseTracker(tag_config.tag_to_robot.values()) if args.track else None
+    object_tracker = ObjectTracker(tag_config.tag_to_robot.values(),
+        confirm_frames=args.object_confirm_frames, max_distance_mm=args.object_max_distance_mm,
+        miss_timeout_s=args.object_miss_timeout_ms / 1000.0,
+        ambiguity_margin_mm=args.object_ambiguity_mm,
+        max_frame_age_s=args.max_age_ms / 1000.0) if args.track else None
     color_detector = ColorDetector.load(calibration, args.colors) if args.colors else None
     processed = complete = detected = total = 0
     unknown = duplicates = missing_frames = rejected_frames = 0
@@ -359,7 +373,9 @@ def _detect(args: argparse.Namespace) -> int:
                         preview_created = True
                     cv2.imshow(preview_window, last)
             if tracker:
-                record.update(tracker.update(record, time.monotonic()))
+                tracking_at = time.monotonic()
+                record.update(tracker.update(record, tracking_at))
+                record.update(object_tracker.update(record, tracking_at))
                 if args.preview:
                     if not preview_created:
                         cv2.namedWindow(preview_window, cv2.WINDOW_NORMAL)
@@ -379,7 +395,7 @@ def _detect(args: argparse.Namespace) -> int:
             report.write(json.dumps({"status": "source_closed", "source_name": tracker.source or "unopened",
                 "sequence": tracker.sequence + 1, "captured_at_s": terminal_at, "reason": status,
                 "field_size_mm": list(calibration.field_size_mm), "is_replay": args.camera is None,
-                **tracker.snapshot(terminal_at)}, allow_nan=False) + "\n")
+                **tracker.close(terminal_at), **object_tracker.close(terminal_at)}, allow_nan=False) + "\n")
             report.flush()
     if args.output is not None and last is not None:
         _write_image(args.output, last)

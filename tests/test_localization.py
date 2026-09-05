@@ -71,6 +71,61 @@ class TrackerTests(unittest.TestCase):
         self.assertAlmostEqual(result["tracks"][0]["velocity_mm_s"][0],100.)
         self.assertFalse(result["hardware_ready"])
 
+    def test_equal_host_timestamp_with_new_sequence_and_media_is_valid(self):
+        tracker = PoseTracker(["H1"])
+        tracker.update(record(["H1"], replay=True, media=0.0), 10.0001)
+        next_frame = record(["H1"], 2, 10.0, x=310.0, replay=True, media=0.1)
+        result = tracker.update(next_frame, 10.0001)
+        self.assertIsNone(result["tracking_frame_reason"])
+        self.assertTrue(result["observation_usable"])
+        self.assertAlmostEqual(100.0, result["tracks"][0]["velocity_mm_s"][0])
+        self.assertEqual([310.0, 200.0], result["tracks"][0]["robot_center_mm"])
+        # Equal host ticks must not weaken the independent sequence guard.
+        duplicate = tracker.update(next_frame, 10.0002)
+        self.assertEqual("out_of_order_sequence", duplicate["tracking_frame_reason"])
+        self.assertTrue(duplicate["stop_required"])
+
+    def test_equal_or_reversed_media_still_rejects_new_sequence(self):
+        for host_stamp in (10.0, 10.1):
+            for media_stamp in (1.0, 0.9):
+                with self.subTest(host_stamp=host_stamp, media_stamp=media_stamp):
+                    tracker = PoseTracker(["H1"])
+                    tracker.update(record(["H1"], replay=True, media=1.0), 10.0001)
+                    result = tracker.update(record(["H1"], 2, host_stamp, x=310.0,
+                        replay=True, media=media_stamp), host_stamp + 0.0001)
+                    self.assertIsNone(result["tracking_frame_reason"])
+                    self.assertEqual("nonpositive_pose_dt", result["tracking_rejections"]["H1"])
+                    self.assertTrue(result["stop_required"])
+                    self.assertFalse(result["tracks"][0]["valid_for_control"])
+                    self.assertEqual([300.0, 200.0], result["tracks"][0]["robot_center_mm"])
+
+    def test_source_closed_latches_until_new_tracker_session(self):
+        for via_method in (False, True):
+            with self.subTest(via_method=via_method):
+                tracker = PoseTracker(["H1"])
+                tracker.update(record(["H1"]), 10.01)
+                terminal = record(["H1"], 2, 10.1)
+                terminal["status"] = "source_closed"
+                closed = tracker.close(10.1) if via_method else tracker.update(terminal, 10.1)
+                self.assertTrue(closed["tracking_session_closed"])
+                self.assertTrue(closed["stop_required"])
+                resumed = tracker.update(record(["H1"], 3, 10.2, x=310.), 10.21)
+                self.assertEqual("session_closed", resumed["tracking_frame_reason"])
+                self.assertFalse(resumed["tracks"][0]["valid_for_control"])
+                self.assertEqual([300., 200.], resumed["tracks"][0]["robot_center_mm"])
+                self.assertTrue(tracker.snapshot(10.3)["tracking_session_closed"])
+                self.assertTrue(PoseTracker(["H1"]).update(record(["H1"], 1, 10.4), 10.41)["observation_usable"])
+
+    def test_rejected_frame_header_already_consumes_sequence_order(self):
+        tracker = PoseTracker(["H1"])
+        tracker.update(record(["H1"]), 10.01)
+        invalid_image = record(["H1"], 3, 10.2)
+        invalid_image["status"] = "rejected_frame"
+        self.assertTrue(tracker.update(invalid_image, 10.21)["stop_required"])
+        result = tracker.update(record(["H1"], 2, 10.1), 10.22)
+        self.assertEqual("out_of_order_sequence", result["tracking_frame_reason"])
+        self.assertTrue(result["stop_required"])
+
     def test_malformed_inputs_fail_closed(self):
         for value in (None, [None], [{"robot_id":[]}], ["oops"]):
             r=record(["H1"]);r["robots"]=value

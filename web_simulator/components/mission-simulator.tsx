@@ -32,6 +32,8 @@ import {
 } from '@/lib/mission';
 import ArenaSimulator from './arena-simulator';
 import PositionMonitor from './position-monitor';
+import SimulationLab from './simulation-lab';
+import { createExperiment } from '@/lib/experiments';
 import './mission.css';
 
 const px = (x: number) => x * 1000;
@@ -84,13 +86,13 @@ function FieldView({
       opacity={!item.selected ? 0.65 : 1}
     >
       <title>
-        {item.id} · {labelItem(item)} ·{' '}
-        {item.carrier
-          ? `${item.carrier} 운반 중`
-          : item.released
-            ? '내려놓음'
-            : '초기 위치'}{' '}
-        → {destinationOf(world, item.id)}
+        {`${item.id} · ${labelItem(item)} · ${
+          item.carrier
+            ? `${item.carrier} 운반 중`
+            : item.released
+              ? '내려놓음'
+              : '초기 위치'
+        } → ${destinationOf(world, item.id)}`}
       </title>
       {item.kind === 'cube' ? (
         <g>
@@ -140,9 +142,7 @@ function FieldView({
       onClick={() => setSelected(robot.id)}
       className="map-robot"
     >
-      <title>
-        {robot.name} · {PHASE_LABEL[robot.phase]}
-      </title>
+      <title>{`${robot.name} · ${PHASE_LABEL[robot.phase]}`}</title>
       <g
         transform={`translate(${px(robot.pose.x)} ${py(robot.pose.y)}) rotate(${(-robot.pose.heading * 180) / Math.PI})`}
       >
@@ -235,7 +235,7 @@ function FieldView({
     <svg
       className="mission-map"
       viewBox="-62 -65 1267 1336"
-      aria-label="햄스터 1대와 비버 3대가 운반하는 연습 경기장"
+      aria-label={`햄스터 1대와 비버 ${world.robots.length - 1}대가 운반하는 연습 경기장`}
     >
       <title>햄스터·비버·박쥐 예선 경기장</title>
       <defs>
@@ -365,7 +365,7 @@ function FieldView({
           transform={`translate(${px(world.drone.pose.x)} ${py(world.drone.pose.y)})`}
           opacity={world.drone.altitude > 0.1 ? 0.65 : 1}
         >
-          <title>박쥐 · {world.drone.altitude.toFixed(2)}m · 관측 모의</title>
+          <title>{`박쥐 · ${world.drone.altitude.toFixed(2)}m · 관측 모의`}</title>
           <rect
             x="-75"
             y="-75"
@@ -445,7 +445,11 @@ export default function MissionSimulator() {
   }, []);
   const reset = useCallback(
     (mode?: ObservationMode) => {
-      worldRef.current = createWorld(mode ?? worldRef.current.observer.mode);
+      const observation = mode ?? worldRef.current.observer.mode;
+      worldRef.current = createExperiment(
+        observation,
+        worldRef.current.robots.length === 5 && observation !== 'drone' ? 5 : 4,
+      );
       setRunning(false);
       publish();
     },
@@ -493,7 +497,7 @@ export default function MissionSimulator() {
       {
         name: 'read_simulation_state',
         description:
-          'Read the four ground robots, measured-position or Bat observation model, carried items, final-state score, and servo/sensor state.',
+          'Read the configured ground fleet, synthetic observations, carried items, final-state score, and servo/sensor state.',
         annotations: { readOnlyHint: true },
         execute: () => ({
           world: worldRef.current,
@@ -521,7 +525,7 @@ export default function MissionSimulator() {
       {
         name: 'reset_simulation',
         description:
-          'Reset the qualifier practice scenario and its four ground robots.',
+          'Reset the qualifier practice scenario, configured fleet and emergency-stop latch.',
         execute: () => {
           reset();
           return { reset: true };
@@ -593,7 +597,7 @@ export default function MissionSimulator() {
             <div>
               <p className="mission-kicker">SENIOR 예선 · 120초 점수제</p>
               <h1>
-                햄스터 × 1 · 비버 × 3 ·{' '}
+                햄스터 × 1 · 비버 × {world.robots.length - 1} ·{' '}
                 {world.observer.mode === 'localization'
                   ? '좌표 추적'
                   : '박쥐 × 1'}
@@ -734,7 +738,7 @@ export default function MissionSimulator() {
               </section>
               <section className="control-card">
                 <h2>
-                  지상팀 <small>4대</small>
+                  지상팀 <small>{world.robots.length}대</small>
                 </h2>
                 <div className="team-list">
                   {world.robots.map((r) => (
@@ -884,8 +888,8 @@ export default function MissionSimulator() {
                     ? '전체 위치 입력 끊김 시험'
                     : '드론 영상 끊김 시험'}
                 </label>
-                {world.observer.frameAge > 0.5 && (
-                  <p className="fault-message">관측 0.5초 초과 · 지상팀 대기</p>
+                {world.observer.frameAge > 0.3 && (
+                  <p className="fault-message">관측 300ms 초과 · 지상팀 대기</p>
                 )}
                 <label className="test-fault">
                   <input
@@ -909,6 +913,22 @@ export default function MissionSimulator() {
               </section>
             </aside>
           </div>
+          <SimulationLab
+            world={world}
+            change={(fn) => {
+              fn(worldRef.current);
+              publish();
+            }}
+            fleet={(n) => {
+              worldRef.current = createExperiment(
+                n === 5 ? 'localization' : worldRef.current.observer.mode,
+                n,
+              );
+              setSelectedId('H1');
+              setRunning(false);
+              publish();
+            }}
+          />
           <PositionMonitor world={world} />
           <section className="rules-and-log">
             <div className="control-card rule-card">
@@ -931,7 +951,7 @@ export default function MissionSimulator() {
               </p>
               <p>
                 <b>역할 동선:</b> 출발할 때 비버 왼쪽·햄스터 오른쪽. 햄스터는
-                왼쪽 아래 격리구역으로 이동하므로 4대 모두 충돌 검사.
+                왼쪽 아래 격리구역으로 이동하므로 모든 지상 로봇을 충돌 검사.
               </p>
               <a
                 href="https://robotics-2026.web.app/resources"

@@ -83,11 +83,22 @@ export type Robot = {
   served: number;
   staging: Point;
   park: Point;
+  stagnant: number;
+  recoveryTarget: Pose | null;
+  recoveryAttempts: number;
 };
 export type LogEntry = {
   time: number;
   text: string;
   level: 'info' | 'success' | 'warning';
+};
+type ObservationPacket = {
+  at: number;
+  sequence: number;
+  poses: Record<
+    string,
+    { x_mm: number; y_mm: number; heading_rad: number; at: number }
+  >;
 };
 export type World = {
   elapsed: number;
@@ -98,6 +109,8 @@ export type World = {
   logs: LogEntry[];
   locks: Record<string, string>;
   faultRobot: string | null;
+  emergencyStopped: boolean;
+  safetyReason: string;
   observer: {
     mode: ObservationMode;
     frameAge: number;
@@ -105,6 +118,10 @@ export type World = {
     missingId: string | null;
     sampledAt: number;
     sequence: number;
+    delayMs: number;
+    noiseMm: number;
+    sentSequence: number;
+    queue: ObservationPacket[];
     poses: Record<
       string,
       { x_mm: number; y_mm: number; heading_rad: number; at: number }
@@ -285,6 +302,9 @@ export function createWorld(
     velocity: { x: 0, y: 0 },
     fault: null,
     served: 0,
+    stagnant: 0,
+    recoveryTarget: null,
+    recoveryAttempts: 0,
   });
   const defaults: FleetSpec[] = [
     {
@@ -391,6 +411,8 @@ export function createWorld(
     reason: '',
     locks: {},
     faultRobot: null,
+    emergencyStopped: false,
+    safetyReason: '',
     logs: [
       {
         time: 0,
@@ -408,6 +430,10 @@ export function createWorld(
       missingId: null,
       sampledAt: -1,
       sequence: 0,
+      delayMs: 0,
+      noiseMm: 0,
+      sentSequence: 0,
+      queue: [],
       poses: {},
     },
     drone: {
@@ -767,6 +793,8 @@ function enter(robot: Robot, phase: Phase) {
   robot.timer = 0;
   robot.wait = 0;
   robot.blockedBy = null;
+  robot.stagnant = 0;
+  robot.recoveryTarget = null;
 }
 function assignTarget(robot: Robot, target: Pose) {
   robot.target = target;
@@ -808,7 +836,7 @@ function startJob(world: World, robot: Robot) {
   log(world, `${robot.name} · ${item.id} → ${job.destination}`);
 }
 function move(world: World, robot: Robot, dt: number): boolean {
-  const target = robot.target;
+  const target = robot.recoveryTarget ?? robot.target;
   if (!target) return false;
   const obstacles = obstacleList(world, robot);
   // Keep gripper facing the requested station while translating (mecanum model).
@@ -831,7 +859,16 @@ function move(world: World, robot: Robot, dt: number): boolean {
     robot.path = [];
     return false;
   }
-  if (dist(robot.pose, target) <= 0.0008) return true;
+  if (dist(robot.pose, target) <= 0.0008) {
+    if (robot.recoveryTarget) {
+      robot.recoveryTarget = null;
+      robot.path = [];
+      robot.wait = 0.8;
+      robot.stagnant = 0;
+      return false;
+    }
+    return true;
+  }
   if (robot.path.length === 0 && robot.wait >= 0.75) {
     robot.path = planPath(world, robot, target);
     robot.wait = 0;
@@ -868,7 +905,107 @@ function move(world: World, robot: Robot, dt: number): boolean {
     robot.trail.push({ x: pose.x, y: pose.y });
     if (robot.trail.length > 400) robot.trail.shift();
   }
-  return dist(robot.pose, target) <= 0.0008;
+  return !robot.recoveryTarget && dist(robot.pose, target) <= 0.0008;
+}
+
+// Local, bounded yielding: translate with the existing heading before retrying
+// a blocked turn/path. No teleport, altered collision margin or task completion.
+function recoverTraffic(world: World, robot: Robot) {
+  if (!robot.target || robot.recoveryTarget || robot.stagnant < 2) return;
+  if (world.robots.some((r) => r.recoveryTarget)) return;
+  const obstacles = obstacleList(world, robot);
+  const original = { ...robot.pose };
+  const candidates: { pose: Pose; cost: number }[] = [];
+  for (const radius of [0.12, 0.2, 0.28]) {
+    for (let i = 0; i < 16; i++) {
+      const angle = (i * Math.PI) / 8;
+      const pose = {
+        x: original.x + Math.cos(angle) * radius,
+        y: original.y + Math.sin(angle) * radius,
+        heading: original.heading,
+      };
+      if (!segmentFree(original, pose, robot, world, obstacles)) continue;
+      const turn = normalizeAngle(robot.target.heading - pose.heading);
+      let free = true;
+      for (let t = 0; t <= 32; t++) {
+        if (
+          safePose(
+            robot,
+            world.items,
+            { ...pose, heading: pose.heading + (turn * t) / 32 },
+            obstacles,
+          )
+        ) {
+          free = false;
+          break;
+        }
+      }
+      if (!free) continue;
+      candidates.push({ pose, cost: radius + dist(pose, robot.target) });
+    }
+  }
+  // Bound expensive path searches so a failed recovery cannot lock up the UI.
+  const chosen = candidates
+    .sort((a, b) => a.cost - b.cost)
+    .slice(0, 3)
+    .find(({ pose }) => {
+      robot.pose = { ...pose, heading: robot.target!.heading };
+      const reachable = planPath(world, robot, robot.target!).length > 0;
+      robot.pose = original;
+      return reachable;
+    });
+  robot.stagnant = 0;
+  if (!chosen) {
+    // A finished robot is still a physical obstacle. Relocate it, never erase it.
+    const parked = world.robots.find(
+      (r) =>
+        r.phase === 'complete' &&
+        r.role === 'beaver' &&
+        r.recoveryAttempts < 3 &&
+        dist(r.pose, robot.pose) < 0.5,
+    );
+    if (!parked) return;
+    const parkedObstacles = obstacleList(world, parked);
+    const options: { pose: Pose; cost: number }[] = [];
+    for (const radius of [0.18, 0.3, 0.42])
+      for (let i = 0; i < 16; i++) {
+        const pose = {
+          x: parked.pose.x + radius * Math.cos((i * Math.PI) / 8),
+          y: parked.pose.y + radius * Math.sin((i * Math.PI) / 8),
+          heading: parked.pose.heading,
+        };
+        if (!segmentFree(parked.pose, pose, parked, world, parkedObstacles))
+          continue;
+        const active = world.robots.filter(
+          (r) => r.id !== parked.id && r.phase !== 'complete',
+        );
+        const room = Math.min(
+          ...active.flatMap((r) => [
+            dist(pose, r.pose),
+            r.target ? dist(pose, r.target) : Infinity,
+          ]),
+        );
+        if (room < 0.19) continue;
+        options.push({ pose, cost: radius - room });
+      }
+    const spot = options.sort((a, b) => a.cost - b.cost)[0];
+    if (!spot) return;
+    parked.park = spot.pose;
+    enter(parked, 'park');
+    assignTarget(parked, spot.pose);
+    parked.recoveryAttempts++;
+    log(world, `${parked.name} · 완료 후 주차 위치 양보`, 'warning');
+    return;
+  }
+  robot.recoveryTarget = chosen.pose;
+  robot.path = [chosen.pose];
+  robot.wait = 0;
+  robot.recoveryAttempts++;
+  log(
+    world,
+    `${robot.name} · 혼잡 회복 ${robot.recoveryAttempts}회: 안전한 옆길로 양보`,
+    'warning',
+  );
 }
 function fail(world: World, robot: Robot, message: string) {
   enter(robot, 'fault');
@@ -916,26 +1053,52 @@ export function advance(world: World, dt: number = SPEC.dt): World {
     return finish(world, '120초 종료 · 최종 배치 판정');
   }
   const observer = world.observer;
-  observer.frameAge = observer.lost
-    ? observer.frameAge + step
-    : world.elapsed % 0.1;
   if (!observer.lost && world.elapsed - observer.sampledAt >= 0.1 - 1e-9) {
     observer.sampledAt = world.elapsed;
-    observer.sequence++;
-    for (const r of world.robots) {
+    observer.sentSequence++;
+    const packet: ObservationPacket = {
+      at: world.elapsed,
+      sequence: observer.sentSequence,
+      poses: {},
+    };
+    for (const [index, r] of world.robots.entries()) {
       if (r.id === observer.missingId) continue;
-      observer.poses[r.id] = {
-        x_mm: r.pose.x * 1000,
-        y_mm: r.pose.y * 1000,
+      const jitter = observer.sentSequence * 1.618 + index * 2.17;
+      packet.poses[r.id] = {
+        x_mm: r.pose.x * 1000 + Math.cos(jitter) * observer.noiseMm,
+        y_mm: r.pose.y * 1000 + Math.sin(jitter) * observer.noiseMm,
         heading_rad: normalizeAngle(r.pose.heading + Math.PI / 2),
         at: world.elapsed,
       };
     }
+    observer.queue.push(packet);
   }
-  // Every ground robot participates in the shared collision/localization gate.
-  // This is a noise-free synthetic sensor, NOT OpenCV running in the browser.
-  if (observer.missingId !== null) return world;
-  if (observer.frameAge > 0.5) {
+  while (
+    observer.queue.length &&
+    world.elapsed - observer.queue[0].at >= observer.delayMs / 1000 - 1e-9
+  ) {
+    const packet = observer.queue.shift()!;
+    observer.sequence = packet.sequence;
+    Object.assign(observer.poses, packet.poses);
+  }
+  observer.queue = observer.queue.slice(-20);
+  observer.frameAge = Math.max(
+    ...world.robots.map((r) => world.elapsed - (observer.poses[r.id]?.at ?? 0)),
+  );
+  // Synthetic observation health gate; physics still uses ideal geometry.
+  // The separate Python mock controller closes the measured-pose velocity loop.
+  world.safetyReason = world.emergencyStopped
+    ? '비상정지 잠금 · 초기화해야 해제'
+    : observer.missingId !== null
+      ? `${observer.missingId} 위치 누락`
+      : !world.robots.every((r) => observer.poses[r.id])
+        ? '첫 위치 관측 대기'
+        : observer.frameAge > 0.3
+          ? '위치 관측 300ms 만료'
+          : observer.noiseMm > 1
+            ? '위치 오차 상한 1mm 초과 · 정밀 배치 보류'
+            : '';
+  if (world.safetyReason) {
     world.drone.phase = 'hold';
     return world;
   }
@@ -956,6 +1119,7 @@ export function advance(world: World, dt: number = SPEC.dt): World {
       else continue;
     }
     robot.timer += step;
+    const previousPose = { ...robot.pose };
     const job = jobOf(robot),
       item = job ? world.items.find((i) => i.id === job.itemId)! : null;
     if (robot.phase === 'to-pick') {
@@ -1084,6 +1248,19 @@ export function advance(world: World, dt: number = SPEC.dt): World {
         i.x = position.x;
         i.y = position.y;
       });
+    if (
+      robot.blockedBy &&
+      dist(previousPose, robot.pose) < 1e-7 &&
+      Math.abs(normalizeAngle(previousPose.heading - robot.pose.heading)) < 1e-7
+    ) {
+      robot.stagnant += step;
+      if (
+        ['to-pick', 'clear-pick', 'to-drop', 'retreat', 'park'].includes(
+          robot.phase,
+        )
+      )
+        recoverTraffic(world, robot);
+    } else robot.stagnant = 0;
   }
   if (world.robots.every((r) => r.phase === 'complete'))
     finish(world, '임무 완료 · 조기 종료 모의');

@@ -25,7 +25,7 @@ export default function PositionMonitor({ world }: { world: World }) {
             state:
               world.observer.missingId === r.id
                 ? 'missing'
-                : world.elapsed - p.at > 0.5
+                : world.elapsed - p.at > 0.3
                   ? 'stale'
                   : 'observed',
           },
@@ -184,6 +184,38 @@ export default function PositionMonitor({ world }: { world: World }) {
           </button>
         )}
       </div>
+      {current && current.objects.length > 0 && (
+        <div className="position-table-wrap">
+          <table className="position-table">
+            <caption>색 물체 연속 추적 · 세션 안의 ID</caption>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>색 / 종류</th>
+                <th>x / y mm</th>
+                <th>추적 / 소유자</th>
+              </tr>
+            </thead>
+            <tbody>
+              {current.objects.map((o, i) => (
+                <tr key={o.id ?? i}>
+                  <th>{o.id ?? '미확정'}</th>
+                  <td>
+                    {o.color} / {o.kind}
+                  </td>
+                  <td>
+                    {o.x.toFixed(1)} / {o.y.toFixed(1)}
+                  </td>
+                  <td>
+                    {o.uncertain ? '동일성 모호' : o.state} /{' '}
+                    {o.owner ?? '없음'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {current && (
         <label className="position-slider">
           프레임 {index + 1} / {frames.length}
@@ -204,8 +236,9 @@ export default function PositionMonitor({ world }: { world: World }) {
       )}
       <p className="compact-note">
         파일은 이 브라우저 안에서만 읽습니다. 실시간 장비 확인은 GitHub의
-        --track --colors --preview 실행법을 사용하세요. 색은 종류 후보이며 같은
-        색 물체의 고유 ID나 집기 성공을 보장하지 않습니다.
+        --track --colors --preview 실행법을 사용하세요. 물체 ID는 기본 3회 연속
+        확인 뒤 확정됩니다. 같은 색의 겹침·완전 소실 뒤 동일성이나 실제 집기
+        성공은 보장하지 않습니다.
       </p>
     </section>
   );
