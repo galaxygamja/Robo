@@ -8,6 +8,23 @@ permissions:
   contents: read
 
 jobs:
+  vision:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install real-image processing dependencies
+        run: python -m pip install -e ".[vision]"
+      - name: Verify vision dependencies are available
+        run: python -c "import cv2, numpy; print(cv2.__version__, numpy.__version__)"
+      - name: Camera, calibration, CLI and regression tests
+        run: python -m unittest discover -s tests -v
+
   web-physics:
     runs-on: ubuntu-latest
     steps:

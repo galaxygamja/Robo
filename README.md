@@ -1,5 +1,42 @@
 # Robo Control Lab
 
+## 실제 카메라 코드: 영상 입력과 경기장 좌표 보정
+
+`robo_control.vision`은 실제 USB 카메라 또는 녹화 파일을 읽어 경기장 평면을
+원근 보정하고, 영상 픽셀을 **좌하단 원점의 mm 좌표**로 변환합니다.
+보정값 JSON 저장, 별도 실측 기준점 오차 검사, 프레임 시각·순서·해상도 검사와
+처리 로그를 제공합니다. 다중 프레임 추적·ESP32 주행 연동은 다음 단계입니다.
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[vision]"
+.\.venv\Scripts\python.exe -m robo_control.vision calibrate --camera 0 --output recordings/camera.json
+.\.venv\Scripts\python.exe -m robo_control.vision run --camera 0 --calibration recordings/camera.json --preview --frames 300 --report recordings/camera-frames.jsonl
+```
+
+처음 실행할 때 카메라가 연결되어 있어야 합니다. 네 모서리를 경기장 기준
+좌상→우상→우하→좌하 순서로 클릭하고 Enter를 누릅니다.
+설치·녹화 파일 사용·검증 방법은 [카메라 보정 사용 설명](docs/CAMERA_CALIBRATION_KO.md)을 참고하세요.
+
+### 실제 로봇 4대 AprilTag 검출
+
+기본 태그 설정은 `DICT_APRILTAG_36h11`의 ID 0~3을 각각
+`H1`, `H2`, `B1`, `B2`로 지정한다. 카메라 보정 후 다음 명령으로 실제 영상의
+로봇 회전중심(mm)과 방향(rad)을 JSONL로 기록할 수 있다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/generate_robot_tags.py --output-dir recordings/printable-tags
+.\.venv\Scripts\python.exe -m robo_control.vision detect --camera 0 --calibration recordings/camera.json --tags config/robot_tags.json --frames 300 --preview --report recordings/tag-live.jsonl
+```
+
+미등록 태그, 중복 ID, 경기장 밖 좌표는 로봇 관측으로 사용하지 않는다.
+`observation_complete`는 한 프레임의 태그 구성이 완전하다는 의미이며 모터 제어
+허가가 아니다. 인쇄 방향·장착 오프셋·태그 높이와 렌즈 오차를 실물로 측정해야 한다.
+자세한 계약과 시험법은 [AprilTag 검출 설명](docs/APRILTAG_TRACKING_KO.md)에 있다.
+
+현재 실제 비전 CLI는 실행당 카메라 한 대를 처리한다. 아래의 고정 카메라 2대는
+시뮬레이터의 관측 가정이며, 두 실영상의 시간 동기화·중복 관측 융합은 아직
+구현하지 않았다. 카메라별 보정과 단일 영상 검출을 먼저 실측한 뒤 연결한다.
+
 ## 현재 기본 구성: 햄스터 2 · 비버 2 · 고정 카메라 2
 
 **[새 예선 임무 시뮬레이터 열기](https://robo-six-arena-simulator.magic-shark-7297.chatgpt.site)**
@@ -35,14 +72,15 @@ python -m unittest discover -s tests -v
 정상 합성센서 데모는 160점 JSON을 출력합니다. 센서 실패를 넣으면 확인 없이 조작을 성공 처리하지 않습니다.
 웹의 약 89초는 가상 주행 시간이며 Python의 단순 합성 시간과 성능 비교하면 안 됩니다.
 웹·Python은 같은 좌하단 원점/물체/목적지/작업 장면을 쓰지만 서로 실시간 연결된 것은 아닙니다.
-실제 고정 카메라 영상 인식·모터·드론·무선통신은 미연결입니다. 이 코드는 실물 완주시간이나 비행 허용을 보장하지 않습니다.
+위 실제 영상 관측 결과와 모터·드론·무선통신은 제어 코어에 아직 미연결입니다.
+이 코드는 실물 완주시간이나 비행 허용을 보장하지 않습니다.
 
 - [웹 규칙·동선·기구·시험 상세](web_simulator/README.md)
 - [Python 제어 설계 상세](docs/QUALIFIER_CONTROL_KO.md)
 - [예선 장면 설정](config/qualifier_senior.json)
 - [예선 제어 코어](robo_control/qualifier.py)
 
-2026-09-05 새 임무 추가 후 Python 67개·웹 26개 회귀시험을 통과했습니다.
+2026-09-05 현재 vision 의존성 환경에서 Python 172개·웹 26개 회귀시험을 통과했습니다.
 
 ---
 
@@ -96,8 +134,8 @@ python -m unittest discover -s tests -v
 - USB/RTSP 카메라, ESP32 UDP 통신, 드론 조종기용 독립 어댑터 경계 클래스
 - 외부 패키지 없이 실행되는 자동 테스트와 headless 시뮬레이션
 
-이전 데모는 당시 구상에 맞춰 6대로 구성했지만, 실제 제작 초기에는
-2~3대로 안정성을 완성한 뒤 늘리는 것을 권장합니다. 480×280mm 출발구역에
+이전 데모는 당시 구상에 맞춰 6대로 구성했지만, 실제 제작은
+1대→2대→지상 4대 순서로 안정성을 확인합니다. 480×280mm 출발구역에
 6대를 넣으면 기구 오차와 경로 혼잡에 매우 민감합니다.
 
 설정과 사용자 시나리오는 1~8대를 지원합니다. 기본 시나리오는 시작점 6개와

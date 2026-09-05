@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "dictionary_name": "DICT_APRILTAG_36h11",
+  "tag_to_robot": {
+    "0": "H1",
+    "1": "H2",
+    "2": "B1",
+    "3": "B2"
+  },
+  "heading_offsets_rad": {
+    "H1": 0.0,
+    "H2": 0.0,
+    "B1": 0.0,
+    "B2": 0.0
+  },
+  "robot_center_from_tag_mm": {
+    "H1": {"forward_mm": 0.0, "left_mm": 0.0},
+    "H2": {"forward_mm": 0.0, "left_mm": 0.0},
+    "B1": {"forward_mm": 0.0, "left_mm": 0.0},
+    "B2": {"forward_mm": 0.0, "left_mm": 0.0}
+  },
+  "marker_forward": "canonical_corner_0_to_1",
+  "coordinate_system": "bottom_left_x_right_y_up_mm",
+  "allowed_margin_mm": 0.0,
+  "tag_size_mm": null,
+  "tag_size_tolerance_fraction": 0.35,
+  "hardware_verified": false
+}
