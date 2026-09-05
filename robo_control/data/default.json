@@ -1,0 +1,32 @@
+{
+  "field": {
+    "width_m": 1.143,
+    "height_m": 1.181,
+    "grid_cell_m": 0.02,
+    "boundary_margin_m": 0.025
+  },
+  "mission": {
+    "duration_s": 120.0,
+    "robot_count": 6,
+    "control_hz": 20.0,
+    "planner_hz": 4.0,
+    "simulation_speed": 1.0
+  },
+  "robot": {
+    "radius_m": 0.063,
+    "linear_speed_mps": 0.20,
+    "goal_tolerance_m": 0.025,
+    "tracking_timeout_s": 0.5,
+    "command_timeout_s": 0.5
+  },
+  "network": {
+    "dashboard_host": "127.0.0.1",
+    "dashboard_port": 8080,
+    "robot_udp_port": 9100
+  },
+  "safety": {
+    "minimum_separation_m": 0.138,
+    "stop_on_tracking_loss": true,
+    "stop_on_predicted_collision": true
+  }
+}

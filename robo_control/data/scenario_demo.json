@@ -1,0 +1,27 @@
+{
+  "name": "six-robot-demo-placeholder",
+  "official_layout": false,
+  "notes": "소프트웨어 검증용 임의 좌표입니다. 공식 예선 배치도로 교체해야 하며, 현재 원형 충돌 모델은 실제 차체의 임의 자세를 보수적으로 감싸지 않습니다.",
+  "start_zone": {"x": 0.0, "y": 0.901, "width": 0.48, "height": 0.28},
+  "robots": [
+    {"id": "R1", "x": 0.09, "y": 1.07, "heading_rad": 0.0},
+    {"id": "R2", "x": 0.25, "y": 1.07, "heading_rad": 0.0},
+    {"id": "R3", "x": 0.41, "y": 1.07, "heading_rad": 0.0},
+    {"id": "R4", "x": 0.09, "y": 0.93, "heading_rad": 0.0},
+    {"id": "R5", "x": 0.25, "y": 0.93, "heading_rad": 0.0},
+    {"id": "R6", "x": 0.41, "y": 0.93, "heading_rad": 0.0}
+  ],
+  "tasks": [
+    {"id": "T1", "x": 0.10, "y": 0.14, "kind": "medical-kit", "priority": 1},
+    {"id": "T2", "x": 0.30, "y": 0.18, "kind": "patient", "priority": 2},
+    {"id": "T3", "x": 0.49, "y": 0.14, "kind": "specimen", "priority": 1},
+    {"id": "T4", "x": 0.68, "y": 0.18, "kind": "medical-kit", "priority": 1},
+    {"id": "T5", "x": 0.88, "y": 0.14, "kind": "patient", "priority": 2},
+    {"id": "T6", "x": 1.04, "y": 0.31, "kind": "specimen", "priority": 1}
+  ],
+  "obstacles": [
+    {"x": 0.50, "y": 0.40, "width": 0.14, "height": 0.30},
+    {"x": 0.22, "y": 0.50, "width": 0.10, "height": 0.12},
+    {"x": 0.84, "y": 0.48, "width": 0.10, "height": 0.12}
+  ]
+}
