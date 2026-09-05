@@ -1,0 +1,63 @@
+name: simulator-ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile
+        run: python -m compileall -q robo_control tests tools
+      - name: Unit and integration tests
+        run: python -m unittest discover -s tests -v
+      - name: Headless mission smoke test
+        run: python -m robo_control --headless > headless-result.json
+
+  package-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install build
+          python -m build --wheel --sdist --outdir "$RUNNER_TEMP/dist"
+      - name: Install and smoke-test wheel outside checkout
+        run: |
+          python -m venv "$RUNNER_TEMP/wheel-env"
+          "$RUNNER_TEMP/wheel-env/bin/python" -m pip install --no-cache-dir --no-deps "$RUNNER_TEMP"/dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/wheel-env/bin/python" -c "from robo_control.config import load_config; from robo_control.simulation import load_scenario; c=load_config(); s=load_scenario(None,c); assert len(s.robots)==c.mission.robot_count==6"
+          "$RUNNER_TEMP/wheel-env/bin/robo-control" --headless > "$RUNNER_TEMP/wheel-headless.json"
+      - name: Install and smoke-test sdist outside checkout
+        run: |
+          python -m venv "$RUNNER_TEMP/sdist-env"
+          "$RUNNER_TEMP/sdist-env/bin/python" -m pip install --no-cache-dir --no-deps "$RUNNER_TEMP"/dist/*.tar.gz
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/sdist-env/bin/python" -c "from robo_control.config import load_config; from robo_control.simulation import load_scenario; c=load_config(); s=load_scenario(None,c); assert len(s.robots)==c.mission.robot_count==6"
+          "$RUNNER_TEMP/sdist-env/bin/robo-control" --headless > "$RUNNER_TEMP/sdist-headless.json"
+
+  windows-launcher-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run Windows launcher headlessly
+        shell: cmd
+        run: START_SIMULATOR.bat --headless > NUL
