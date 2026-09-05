@@ -10,7 +10,7 @@
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "lint": "oxlint app components/arena-simulator.tsx lib/simulation.ts tests",
+    "lint": "oxlint app components/arena-simulator.tsx components/mission-simulator.tsx lib/simulation.ts lib/mission.ts tests",
     "format": "oxfmt"
   },
   "dependencies": {

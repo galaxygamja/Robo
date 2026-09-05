@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Robo 6대 경기 시뮬레이터',
+  title: 'Robo 구조팀 · 햄스터·비버·박쥐 예선 시뮬레이터',
   description:
-    '실제 경기장 규격과 SCAD 로봇 외형을 반영한 6대 로봇 경로 및 메카넘 구동 시뮬레이터',
+    '햄스터 2대, 비버 2대, 박쥐 1대의 디스크·색별 원기둥·의료키트 운반과 예선 최종 상태 채점 시뮬레이터',
 };
 
 export default function RootLayout({

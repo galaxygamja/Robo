@@ -1,5 +1,5 @@
-import ArenaSimulator from '@/components/arena-simulator';
+import MissionSimulator from '@/components/mission-simulator';
 
 export default function Home() {
-  return <ArenaSimulator />;
+  return <MissionSimulator />;
 }
