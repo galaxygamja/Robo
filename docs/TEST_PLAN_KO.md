@@ -1,5 +1,15 @@
 # Robo Control Lab 상세 테스트 계획
 
+## 2026-09-07 렌즈 보정 후속 시험
+
+`test_lens_calibration.py`, `test_lens_integration.py`, `test_lens_capture.py`가 독립
+3D 투영과 실제 이미지 디코딩/체커보드/태그, schema 호환성, 원본 수집 보존을 검사한다.
+OpenCV 4/최신 계열 CI에서 실행한다. 생성 이미지 시험과 실제 카메라 실측은 구분한다.
+압축된 빨강의 HSV 양쪽 경계와 거부 프레임의 정지 감사도 회귀로 고정했다.
+Windows 고장 주입 시험은 Python 프로세스 준비와 카메라 고장 시작 시점을 분리한다.
+실제 runtime 기동/관측 만료 제한을 시험 때문에 완화하지 않는다.
+실행/제약은 [렌즈 안내](LENS_CALIBRATION_KO.md), 결과는 [작업 기록](LENS_WORK_20260907_KO.md)에 남긴다.
+
 ## 2026-09-07 실제 카메라 runtime 추가 시험
 
 아래 9월 5일 기준선/미구현 표는 과거 상태다. 최신 구현 구분은

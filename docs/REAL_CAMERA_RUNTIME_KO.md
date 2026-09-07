@@ -1,5 +1,8 @@
 # 실제 카메라 → 측정 좌표 → 목표 속도 실행 안내
 
+> 후속: [렌즈 보정](LENS_CALIBRATION_KO.md)을 사용하는 field schema 2도 지원한다.
+> 렌즈 값은 실행 설정에 내장 복사되며 검출 행에 적용 여부/식별자를 기록한다.
+
 기준: 2026-09-07, `codex/real-camera-runtime` (팀원 `1613d57`에서 시작, `7a1c37d` 추가 반영).
 
 `python -m robo_control.runtime`은 고정 USB 카메라 또는 로컬 영상 파일을 기존

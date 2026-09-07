@@ -6,6 +6,9 @@
 
 ## 2026-09-07 최신 작업 판단
 
+후속 40분 작업으로 원본 체커보드 수집·렌즈 추정·field schema 2/runtime 연결을 추가했다.
+[렌즈 실행 안내](LENS_CALIBRATION_KO.md), [작업 기록](LENS_WORK_20260907_KO.md)을 참고한다.
+
 팀원 최신 `1613d57`까지 코드와 Python 272개 기준선 시험을 확인했다.
 작업 중 도착한 `7a1c37d`의 의료키트 1·2·1 전담 설정도 반영했다. 카메라 코드와 겹치지 않는다.
 아래 9월 5일의 추적/HSV 미구현 표기는 당시 기록이며 현재 작업 배정에 사용하지 않는다.
@@ -52,6 +55,7 @@ H1 햄스터, H2/B1/B2 비버이며 태그 ID는 유지한다. 실제 단일 run
 |---|---|---|
 | M2 카메라/영상 입력 | 코드 완료 | `OpenCVCameraSource`, `VideoFileSource`, `CameraFrame` 재사용 |
 | M2 네 모서리·mm 보정 | 코드 완료 | `FieldCalibration` 재사용, 실물 정확도 시험만 남음 |
+| M2 렌즈 왜곡 보정/원본 사진 수집 | 코드 완료·실물 검증 대기 | `lens`, `lens_capture`, `lens_calibrate`; schema 2 내장 렌즈, 높이 시차/어안 모델은 별도 |
 | M2 프레임 안전 검사 | 코드 완료 | `FrameProcessor` 재사용, 검출 후 신선도 재검사 포함 |
 | M3 4대 AprilTag 프레임 관측 | 코드 완료 | `AprilTagDetector`와 `config/robot_tags.json` 재사용 |
 | M3 인쇄 태그 생성 | 코드 완료 | `tools/generate_robot_tags.py` 사용, 별도 태그 사전 생성 금지 |

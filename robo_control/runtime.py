@@ -76,7 +76,7 @@ def camera_worker(options, mailbox, stop, worker_status):
     try:
         # Receive the already-validated snapshot, not mutable configuration
         # paths. Editing a JSON file after launch cannot change this session.
-        calibration = FieldCalibration(**options["calibration"])
+        calibration = FieldCalibration.from_dict(options["calibration"])
         tags = TagDetectorConfig(**options["tags"])
         validate_tag_registry(options["fleet"], tags.tag_to_robot)
         colors = ColorDetector(calibration, options["colors"]) if options.get("colors") else None
@@ -253,8 +253,7 @@ def main(argv=None):
         if args.video and not args.video.is_file():
             raise ValueError("Video must be an existing local file")
         goals, radii = load_goals(args.goals, roles, calibration)
-        options = {"calibration": {"image_size_px": calibration.image_size_px,
-                       "corners_px": calibration.corners_px, "field_size_mm": calibration.field_size_mm},
+        options = {"calibration": calibration.as_dict(),
                    "tags": {"dictionary_name": tags.dictionary_name, "tag_to_robot": dict(tags.tag_to_robot),
                        "heading_offsets_rad": dict(tags.heading_offsets_rad),
                        "robot_center_from_tag_mm": dict(tags.robot_center_from_tag_mm),

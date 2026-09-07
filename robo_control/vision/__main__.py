@@ -47,6 +47,7 @@ def _parser() -> argparse.ArgumentParser:
     calibrate.add_argument("--field-size-mm", nargs=2, type=float, default=(1143.0, 1181.0), metavar=("WIDTH", "HEIGHT"))
     calibrate.add_argument("--output", type=Path, required=True, help="calibration JSON")
     calibrate.add_argument("--preview-output", type=Path, help="save rectified PNG/JPEG")
+    calibrate.add_argument("--lens", type=Path, help="Brown5 lens profile; corners still use RAW image pixels")
 
     run = commands.add_parser("run", help="rectify camera/video frames and check freshness")
     _source_options(run)
@@ -91,7 +92,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _distinct_paths(args: argparse.Namespace) -> None:
-    inputs = [getattr(args, key, None) for key in ("image", "video", "calibration", "points", "tags", "colors", "fleet")]
+    inputs = [getattr(args, key, None) for key in ("image", "video", "calibration", "points", "tags", "colors", "fleet", "lens")]
     outputs = [getattr(args, key, None) for key in ("output", "preview_output", "report")]
     input_paths = {p.resolve() for p in inputs if p is not None}
     output_paths = [p.resolve() for p in outputs if p is not None]
@@ -184,7 +185,9 @@ def _calibrate(args: argparse.Namespace) -> int:
             image = frame.image
     corners = (tuple(zip(args.corners[::2], args.corners[1::2]))
                if args.corners is not None else _pick_corners(image))
-    calibration = FieldCalibration((image.shape[1], image.shape[0]), corners, tuple(args.field_size_mm))
+    from .lens import LensCalibration
+    lens = LensCalibration.load(args.lens) if args.lens is not None else None
+    calibration = FieldCalibration((image.shape[1], image.shape[0]), corners, tuple(args.field_size_mm), lens)
     # Generate the preview first; malformed images/geometry must not save a config.
     rectified = calibration.warp(image)
     if args.preview_output is not None:

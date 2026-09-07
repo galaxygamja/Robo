@@ -51,6 +51,8 @@ class DetectionPipeline:
             "field_size_mm": list(self.calibration.field_size_mm),
             "registered_robot_ids": sorted(self.tags.tag_to_robot.values()),
             "mission_registry_checked": self.registry_checked, "device_io": False,
+            "lens_correction_applied": self.calibration.lens is not None,
+            "lens_calibration_id": self.calibration.lens.fingerprint if self.calibration.lens is not None else None,
         }
         try:
             self.processor.begin_frame(frame)

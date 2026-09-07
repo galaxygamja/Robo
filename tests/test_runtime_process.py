@@ -37,7 +37,12 @@ def _record(sequence):
         "robots": [{"robot_id": "H1", "robot_center_mm": [300., 500.], "heading_rad": 0.}]}
 
 
-def _fault_worker(mailbox, stop, state, mode):
+def _fault_worker(mailbox, stop, state, mode, ready, begin):
+    # Separate Windows/Python import time from the camera fault being tested.
+    # Real runtime startup deadlines are unchanged and tested below.
+    ready.set()
+    if not begin.wait(10.):
+        return
     if mode == "startup_hang":
         stop.wait(5.)
         return
@@ -74,13 +79,19 @@ class WorkerIsolationTests(unittest.TestCase):
     def run_fault(self, mode, duration=1., startup=.5):
         context = multiprocessing.get_context("spawn")
         mailbox, stop, state = LatestRecordMailbox(context), context.Event(), context.RawValue("i", 0)
+        ready, begin = context.Event(), context.Event()
         session = LiveControlSession(roles={"H1": "hamster"}, source_name="webcam:test",
             field_size_mm=(1143., 1181.), goals={"H1": {"x_mm": 450., "y_mm": 500.}}, radii_mm={"H1": 40.})
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "runtime.jsonl"
-            report = AsyncJsonlReport(path)
-            worker = context.Process(target=_fault_worker, args=(mailbox, stop, state, mode), daemon=True)
+            worker = context.Process(target=_fault_worker, args=(mailbox, stop, state, mode, ready, begin), daemon=True)
             worker.start()
+            if not ready.wait(10.):
+                worker.terminate()
+                worker.join(2.)
+                self.fail("Fault fixture Python process did not initialize within 10 seconds")
+            report = AsyncJsonlReport(path)
+            begin.set()
             summary = supervise(session, worker, mailbox, stop, state, report,
                                 duration_s=duration, tick_hz=50., startup_timeout_s=startup)
             rows = [json.loads(line) for line in path.read_text().splitlines()]
