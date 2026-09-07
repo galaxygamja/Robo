@@ -58,6 +58,8 @@ jobs:
         run: python -m robo_control.control_loop --demo --robots 5 --compact
       - name: Active aerial viewpoint and multi-source observation smoke test
         run: python -m robo_control.active_observer --demo --compact
+      - name: Four-robot framed wire protocol and fake receiver fault lab
+        run: python -m robo_control.wire_lab --compact
 
   package-smoke:
     runs-on: ubuntu-latest
@@ -80,6 +82,7 @@ jobs:
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.qualifier --compact > "$RUNNER_TEMP/wheel-qualifier.json"
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.control_loop --demo --robots 5 --compact
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.active_observer --demo --compact
+          "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.wire_lab --compact
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.runtime --help
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.runtime_report --help
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.vision.lens_calibrate --help
@@ -94,6 +97,7 @@ jobs:
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.qualifier --compact > "$RUNNER_TEMP/sdist-qualifier.json"
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.control_loop --demo --robots 5 --compact
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.active_observer --demo --compact
+          "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.wire_lab --compact
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.runtime --help
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.runtime_report --help
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.vision.lens_calibrate --help

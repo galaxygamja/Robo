@@ -27,7 +27,10 @@
     "physical_emergency_stop_method": null
   },
   "command_proposal": {
-    "status": "draft_not_wire_protocol",
+    "status": "software_wire_v1_reference_not_hardware_validated",
+    "reference_document": "docs/WIRE_PROTOCOL_KO.md",
+    "wire_protocol": "robo-wire",
+    "wire_version": 1,
     "drive_frame": "robot_body_x_forward_y_left",
     "forward_velocity_unit": "mm/s",
     "angular_velocity_unit": "rad/s",
@@ -38,6 +41,8 @@
   "software_status": {
     "differential_runtime_implemented": true,
     "differential_runtime_scope": "runtime --mission; dry-run body velocity only, no wheel/PWM or transport",
+    "wire_sender_and_fake_receiver_implemented": true,
+    "wire_scope": "differential drive/stop/ACK, in-memory framed bytes only; no runtime transport activation or manipulator/sensor wire messages",
     "legacy_controller_assumption": "four_wheel_mecanum_mock",
     "hardware_verified": false,
     "motion_permitted": false

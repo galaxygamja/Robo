@@ -1,5 +1,12 @@
 # Robo 소프트웨어 구현 계획
 
+## 2026-09-07 통신 규격·가짜 수신기 후속
+
+`wire_codec`, `wire_sender`, `fake_receiver`, `wire_lab`에 JSON 바이트 규격,
+기존 차동 출력 검증, 장치별 ACK/세션/한 번 쓰는 허가/독립 만료 시험을 추가했다.
+관측·경로·제어 알고리즘을 중복 구현하지 않는다. [통신 규격·남은 경계](WIRE_PROTOCOL_KO.md)를 따른다.
+실제 전송 매체/펌웨어, runtime 전체 통신 장애 처리, 집게·센서 wire 확장은 남아 있다.
+
 ## 2026-09-07 임무·경로 실행 후속
 
 `runtime --mission`에 WorldState → 기존 Manipulator → A* 경유점 → 차동 차체 속도

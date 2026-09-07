@@ -1,5 +1,9 @@
 # Robo Control Lab
 
+> 2026-09-07 후속: [통신 규격 v1 · 4대 가짜 수신기 시험](docs/WIRE_PROTOCOL_KO.md).
+> `python -m robo_control.wire_lab --compact`로 차동 명령·ACK·중복·지연·끊김을 시험합니다.
+> 메모리 바이트 루프만 사용하며 실제 네트워크/직렬/모터/센서 출력은 켜지지 않습니다.
+
 > 2026-09-07 후속: [임무·경로 실행 연결](docs/MISSION_ROUTE_RUNTIME_KO.md).
 > `runtime --mission`은 WorldState·기존 임무 상태기계·A*·차동 차체 속도 기록을 연결합니다.
 > 실제 센서/모터 전송은 미연결이며, 센서 확인 없이 집기·배출을 완료 처리하지 않습니다.
