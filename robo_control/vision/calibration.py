@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -61,12 +62,15 @@ class FieldCalibration:
     """Four physically labelled field corners, TL -> TR -> BR -> BL.
 
     Pixels use top-left/y-down. The field uses bottom-left/y-up in mm.
-    No lens undistortion or elevated robot-tag correction is implied.
+    Corners and public pixel coordinates always refer to the RAW image.
+    Optional Brown5 lens correction precedes the plane transform. Elevated
+    robot-tag correction is not implied.
     """
 
     image_size_px: tuple[int, int]
     corners_px: tuple[tuple[float, float], ...]
     field_size_mm: tuple[float, float]
+    lens: Any = None
 
     def __post_init__(self) -> None:
         _, np = vision_dependencies()
@@ -74,6 +78,12 @@ class FieldCalibration:
             raise CalibrationError("image_size_px must contain width and height")
         if any(type(value) is not int or value < 2 for value in self.image_size_px):
             raise CalibrationError("image dimensions must be integers >= 2")
+        if self.lens is not None:
+            from .lens import LensCalibration
+            lens = LensCalibration.from_dict(self.lens) if isinstance(self.lens, dict) else self.lens
+            if not isinstance(lens, LensCalibration) or lens.image_size_px != tuple(self.image_size_px):
+                raise CalibrationError("Lens and field calibration must have the same exact raw image resolution")
+            object.__setattr__(self, "lens", lens)
         if not isinstance(self.field_size_mm, (tuple, list)) or len(self.field_size_mm) != 2:
             raise CalibrationError("field_size_mm must contain width and height")
         size = tuple(_positive_number(value, "field_size_mm") for value in self.field_size_mm)
@@ -102,14 +112,17 @@ class FieldCalibration:
         cv2, np = vision_dependencies()
         width, height = self.field_size_mm
         target = np.array(((0, height), (width, height), (width, 0), (0, 0)), dtype=np.float32)
-        return cv2.getPerspectiveTransform(np.asarray(self.corners_px, dtype=np.float32), target)
+        corners = self.lens.undistort_points(self.corners_px) if self.lens is not None else self.corners_px
+        return cv2.getPerspectiveTransform(np.asarray(corners, dtype=np.float32), target)
 
     def pixel_to_field_mm(self, points: Any):
-        return _project(points, self._matrix())
+        ideal = self.lens.undistort_points(points) if self.lens is not None else points
+        return _project(ideal, self._matrix())
 
     def field_mm_to_pixel(self, points: Any):
         _, np = vision_dependencies()
-        return _project(points, np.linalg.inv(self._matrix()))
+        ideal = _project(points, np.linalg.inv(self._matrix()))
+        return self.lens.distort_points(ideal) if self.lens is not None else ideal
 
     def _output_geometry(self, pixels_per_mm: float):
         scale = _positive_number(pixels_per_mm, "pixels_per_mm")
@@ -136,6 +149,11 @@ class FieldCalibration:
         if (image.shape[1], image.shape[0]) != self.image_size_px:
             raise CalibrationError("frame resolution does not match calibration; recalibrate")
         width, height, scale = self._output_geometry(pixels_per_mm)
+        if self.lens is not None:
+            # Map output directly to RAW pixels: undistorting into a same-size
+            # intermediate would crop field corners shifted outside that image.
+            return cv2.remap(image, *_lens_field_maps(self, scale), cv2.INTER_LINEAR,
+                             borderMode=cv2.BORDER_CONSTANT)
         display = np.array(((scale, 0, 0), (0, -scale, self.field_size_mm[1] * scale), (0, 0, 1)))
         return cv2.warpPerspective(image, display @ self._matrix(), (width, height))
 
@@ -150,10 +168,13 @@ class FieldCalibration:
                 "max_error_mm": float(errors.max())}
 
     def as_dict(self) -> dict[str, Any]:
-        return {"schema_version": 1, "coordinate_system": COORDINATE_SYSTEM,
+        result = {"schema_version": 1, "coordinate_system": COORDINATE_SYSTEM,
                 "image_size_px": list(self.image_size_px),
                 "field_size_mm": list(self.field_size_mm),
                 "corners_px": dict(zip(CORNER_NAMES, self.corners_px))}
+        if self.lens is not None:
+            result.update(schema_version=2, pixel_geometry="raw_camera_pixels", lens=self.lens.as_dict())
+        return result
 
     def save(self, path: str | Path) -> None:
         path = Path(path)
@@ -164,15 +185,48 @@ class FieldCalibration:
     def load(cls, path: str | Path) -> FieldCalibration:
         try:
             data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+            return cls.from_dict(data)
+        except json.JSONDecodeError as exc:
+            raise CalibrationError(f"invalid calibration JSON: {exc}") from exc
+
+    @classmethod
+    def from_dict(cls, data) -> FieldCalibration:
+        try:
             if not isinstance(data, dict):
                 raise CalibrationError("calibration JSON must be an object")
-            if type(data.get("schema_version")) is not int or data["schema_version"] != 1:
+            if type(data.get("schema_version")) is not int or data["schema_version"] not in (1, 2):
                 raise CalibrationError("unsupported calibration schema_version")
             if data.get("coordinate_system") != COORDINATE_SYSTEM:
                 raise CalibrationError("unsupported calibration coordinate_system")
+            if data["schema_version"] == 1 and ("lens" in data or "pixel_geometry" in data):
+                raise CalibrationError("Lens data requires field schema 2; it must never be silently ignored")
+            if data["schema_version"] == 2 and (data.get("pixel_geometry") != "raw_camera_pixels"
+                                                or not isinstance(data.get("lens"), dict)):
+                raise CalibrationError("Field schema 2 requires raw_camera_pixels and embedded lens profile")
             corners = data["corners_px"]
             if not isinstance(corners, dict) or set(corners) != set(CORNER_NAMES):
                 raise CalibrationError("corners_px must name top_left, top_right, bottom_right, bottom_left")
-            return cls(data["image_size_px"], tuple(corners[name] for name in CORNER_NAMES), data["field_size_mm"])
+            return cls(data["image_size_px"], tuple(corners[name] for name in CORNER_NAMES),
+                       data["field_size_mm"], data.get("lens"))
         except (KeyError, TypeError, json.JSONDecodeError) as exc:
             raise CalibrationError(f"invalid calibration JSON: {exc}") from exc
+
+
+@lru_cache(maxsize=2)
+def _lens_field_maps(calibration, scale):
+    """Bounded cache; compute maps in strips rather than full float64 grids."""
+    _, np = vision_dependencies()
+    width, height, _ = calibration._output_geometry(scale)
+    if max(width, height) >= 32767 or width * height > 16_000_000:
+        raise CalibrationError("Lens-remapped output requires axes < 32767 and at most 16 MP")
+    mx, my = np.empty((height, width), np.float32), np.empty((height, width), np.float32)
+    inverse = np.linalg.inv(calibration._matrix())
+    for start in range(0, height, 32):
+        end = min(height, start + 32)
+        x, y = np.meshgrid(np.arange(width) / scale,
+                           calibration.field_size_mm[1] - np.arange(start, end) / scale)
+        ideal = _project(np.column_stack((x.ravel(), y.ravel())), inverse)
+        raw = calibration.lens.distort_points(ideal).reshape(end - start, width, 2)
+        mx[start:end], my[start:end] = raw[:, :, 0], raw[:, :, 1]
+    mx.flags.writeable = my.flags.writeable = False
+    return mx, my

@@ -148,6 +148,24 @@ class VideoFileSource(OpenCVCameraSource):
         self.source_name = f"video:{self.path}"
         self._is_replay = True
 
+    @property
+    def nominal_fps(self) -> float | None:
+        """File metadata for paced playback; never a measured camera rate."""
+        try:
+            value = float(self._capture.get(self._cv2.CAP_PROP_FPS))
+        except (TypeError, ValueError, self._cv2.error):
+            return None
+        return value if math.isfinite(value) and 0 < value <= 1000 else None
+
+    @property
+    def nominal_frame_count(self) -> int | None:
+        """Metadata hint, read before EOF closes the decoder; not proof of integrity."""
+        try:
+            value = float(self._capture.get(self._cv2.CAP_PROP_FRAME_COUNT))
+        except (TypeError, ValueError, self._cv2.error):
+            return None
+        return int(value) if math.isfinite(value) and 0 < value <= 1e9 and value.is_integer() else None
+
 
 @dataclass(frozen=True, slots=True)
 class RobotCommand:

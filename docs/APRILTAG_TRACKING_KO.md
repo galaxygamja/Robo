@@ -1,5 +1,8 @@
 # M3 실제 영상의 로봇 AprilTag 검출
 
+> 2026-09-07: 연속 카메라 관측을 목표 속도 계산과 독립 감시에 연결하려면
+> [실제 카메라 runtime](REAL_CAMERA_RUNTIME_KO.md)을 사용한다. 아래 검출기와 기존 tracker를 재사용한다.
+
 > 최신 확장: `detect --track --colors config/object_colors.json --preview`는 좌표 지도·연속 관측·색 후보를 표시합니다. [실행법 및 감사 결과](LOCALIZATION_RELEASE_KO.md). H2는 현재 세 번째 비버의 영구 ID이며 아래 태그 대응은 유지합니다.
 
 이 모듈은 보정된 고정 카메라에서 지상 로봇 `H1`, `H2`, `B1`, `B2`의

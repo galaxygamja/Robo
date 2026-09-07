@@ -13,12 +13,13 @@ from pathlib import Path
 from ..adapters import CameraFrame, OpenCVCameraSource, VideoFileSource
 from ..fleet import validate_tag_registry
 from .calibration import CORNER_NAMES, FieldCalibration, vision_dependencies
-from .pipeline import FrameProcessor, FrameRejected
-from .tags import AprilTagDetector, TagDetectorConfig, TagDetectionError, default_tag_config_path
-from .tracking import PoseTracker
 from .colors import ColorDetector
-from .object_tracking import ObjectTracker
+from .detection import DetectionPipeline
 from .map_view import draw_position_map
+from .object_tracking import ObjectTracker
+from .pipeline import FrameProcessor, FrameRejected
+from .tags import TagDetectorConfig, default_tag_config_path
+from .tracking import PoseTracker
 
 
 def _positive_int(value: str) -> int:
@@ -46,6 +47,7 @@ def _parser() -> argparse.ArgumentParser:
     calibrate.add_argument("--field-size-mm", nargs=2, type=float, default=(1143.0, 1181.0), metavar=("WIDTH", "HEIGHT"))
     calibrate.add_argument("--output", type=Path, required=True, help="calibration JSON")
     calibrate.add_argument("--preview-output", type=Path, help="save rectified PNG/JPEG")
+    calibrate.add_argument("--lens", type=Path, help="Brown5 lens profile; corners still use RAW image pixels")
 
     run = commands.add_parser("run", help="rectify camera/video frames and check freshness")
     _source_options(run)
@@ -90,7 +92,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _distinct_paths(args: argparse.Namespace) -> None:
-    inputs = [getattr(args, key, None) for key in ("image", "video", "calibration", "points", "tags", "colors", "fleet")]
+    inputs = [getattr(args, key, None) for key in ("image", "video", "calibration", "points", "tags", "colors", "fleet", "lens")]
     outputs = [getattr(args, key, None) for key in ("output", "preview_output", "report")]
     input_paths = {p.resolve() for p in inputs if p is not None}
     output_paths = [p.resolve() for p in outputs if p is not None]
@@ -183,7 +185,9 @@ def _calibrate(args: argparse.Namespace) -> int:
             image = frame.image
     corners = (tuple(zip(args.corners[::2], args.corners[1::2]))
                if args.corners is not None else _pick_corners(image))
-    calibration = FieldCalibration((image.shape[1], image.shape[0]), corners, tuple(args.field_size_mm))
+    from .lens import LensCalibration
+    lens = LensCalibration.load(args.lens) if args.lens is not None else None
+    calibration = FieldCalibration((image.shape[1], image.shape[0]), corners, tuple(args.field_size_mm), lens)
     # Generate the preview first; malformed images/geometry must not save a config.
     rectified = calibration.warp(image)
     if args.preview_output is not None:
@@ -291,8 +295,6 @@ def _detect(args: argparse.Namespace) -> int:
     tag_config = TagDetectorConfig.load(args.tags)
     if args.fleet is not None:
         validate_tag_registry(json.loads(args.fleet.read_text(encoding="utf-8-sig")), tag_config.tag_to_robot)
-    detector = AprilTagDetector(tag_config, calibration)
-    processor = FrameProcessor(calibration, args.max_age_ms / 1000.0)
     tracker = PoseTracker(tag_config.tag_to_robot.values()) if args.track else None
     object_tracker = ObjectTracker(tag_config.tag_to_robot.values(),
         confirm_frames=args.object_confirm_frames, max_distance_mm=args.object_max_distance_mm,
@@ -300,6 +302,9 @@ def _detect(args: argparse.Namespace) -> int:
         ambiguity_margin_mm=args.object_ambiguity_mm,
         max_frame_age_s=args.max_age_ms / 1000.0) if args.track else None
     color_detector = ColorDetector.load(calibration, args.colors) if args.colors else None
+    pipeline = DetectionPipeline(calibration, tag_config, max_age_s=args.max_age_ms / 1000.0,
+                                 colors=color_detector, registry_checked=args.fleet is not None)
+    detector = pipeline.detector
     processed = complete = detected = total = 0
     unknown = duplicates = missing_frames = rejected_frames = 0
     rejection_reasons: Counter[str] = Counter()
@@ -321,36 +326,11 @@ def _detect(args: argparse.Namespace) -> int:
             if frame is None:
                 status = "eof_or_decode_failure" if args.video is not None else "camera_read_failed"
                 break
-            record: dict[str, object] = {
-                "sequence": frame.sequence,
-                "source_name": frame.source_name,
-                "captured_at_s": frame.captured_at_s,
-                "received_at_s": frame.received_at_s,
-                "media_time_s": frame.media_time_s,
-                "timestamp_basis": frame.timestamp_basis,
-                "is_replay": frame.is_replay,
-                "dictionary_name": tag_config.dictionary_name,
-                "tag_size_mm": tag_config.tag_size_mm,
-                "hardware_verified": tag_config.hardware_verified,
-                "coordinate_system": "bottom_left_x_right_y_up_mm",
-                "field_size_mm": list(calibration.field_size_mm),
-                "registered_robot_ids": sorted(tag_config.tag_to_robot.values()),
-                "mission_registry_checked": args.fleet is not None,
-                "device_io": False,
-            }
-            try:
-                processor.begin_frame(frame)
-                batch = detector.detect(frame)
-                objects = color_detector.detect(frame, batch.observations) if color_detector else []
-                processed_at_s, age_s = processor.finish_frame(frame)
-            except (FrameRejected, TagDetectionError) as exc:
-                processor.abandon_frame()
+            result = pipeline.process(frame)
+            record, batch = result.record, result.batch
+            if batch is None:
                 rejected_frames += 1
-                rejection_reasons[exc.reason] += 1
-                record.update(status="rejected_frame", reason=exc.reason)
-            except Exception:
-                processor.abandon_frame()
-                raise
+                rejection_reasons[record["reason"]] += 1
             else:
                 processed += 1
                 complete += int(batch.observation_complete)
@@ -359,11 +339,9 @@ def _detect(args: argparse.Namespace) -> int:
                 unknown += len(batch.unknown_tag_ids)
                 duplicates += len(batch.duplicate_tag_ids)
                 missing_frames += int(bool(batch.missing_robot_ids))
-                record.update(status="detected", processed_at_s=processed_at_s,
-                              host_age_ms=age_s * 1000.0, objects=objects, **batch.as_dict())
                 last = detector.annotate(frame.image, batch)
                 if color_detector:
-                    color_detector.annotate(last, objects)
+                    color_detector.annotate(last, record["objects"])
                 if args.preview and not args.track:
                     if not preview_created:
                         cv2.namedWindow(preview_window, cv2.WINDOW_NORMAL)

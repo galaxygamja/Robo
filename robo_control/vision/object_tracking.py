@@ -322,6 +322,22 @@ class ObjectTracker:
         self._clock(now_s)
         return self._reject(now_s, "session_closed" if self._closed else "no_frame")
 
+    def poll(self, now_s: float) -> dict:
+        """Expire evidence between frames without manufacturing a missing frame.
+
+        A 50 Hz supervisor can poll a 20 Hz camera without breaking a run of
+        consecutive detections. An actual frame without a candidate must still
+        go through update(); snapshot() retains its immediate-invalidation
+        contract for consumers that explicitly know observation was lost.
+        """
+        self._clock(now_s)
+        if self._closed:
+            return self._reject(now_s, "session_closed")
+        for track in self._tracks.values():
+            if self._age(track, now_s) >= min(self.max_frame_age_s, self.miss_timeout_s):
+                self._miss(track, now_s, None, "observation_watchdog")
+        return self._result(now_s)
+
     def close(self, now_s: float) -> dict:
         """Permanently close this source/session; reconnect with a new instance."""
         return self.update({"status": "source_closed"}, now_s)

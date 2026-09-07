@@ -4,7 +4,30 @@
 대상: 한국 예선 120초 경기  
 기본 전략: 고정 상부 카메라(B안) 우선, 드론(A안)은 후속 영상원
 
-## 2026-09-05 구현 상태
+## 2026-09-07 최신 작업 판단
+
+후속 40분 작업으로 원본 체커보드 수집·렌즈 추정·field schema 2/runtime 연결을 추가했다.
+[렌즈 실행 안내](LENS_CALIBRATION_KO.md), [작업 기록](LENS_WORK_20260907_KO.md)을 참고한다.
+
+팀원 최신 `1613d57`까지 코드와 Python 272개 기준선 시험을 확인했다.
+작업 중 도착한 `7a1c37d`의 의료키트 1·2·1 전담 설정도 반영했다. 카메라 코드와 겹치지 않는다.
+아래 9월 5일의 추적/HSV 미구현 표기는 당시 기록이며 현재 작업 배정에 사용하지 않는다.
+
+- **실제 영상용 코드:** 입력·보정·AprilTag·HSV·`PoseTracker`·`ObjectTracker`는 재사용한다.
+- **실행 통합:** 새 `robo_control.runtime`이 실제 USB/녹화 프레임을 기존 제어 코어에 연결한다.
+  영상 프로세스와 중앙 감시를 분리하며 200ms 관측 만료, 3프레임 재확인, 기록 실패 정지를 적용한다.
+- **모의 출력:** 제어 코어는 측정 좌표로 속도를 계산하지만 휠/제동 매개변수는 미검증이다.
+  `MockActuatorBank`는 메모리 검증기이며 ESP32 펌웨어나 모터 드라이버가 아니다.
+- **시뮬레이션:** 웹 동선/완료 시간, `qualifier.run_mock`, `control_loop --demo` 가상 주행,
+  드론 시점 비교는 실물 주행 완료로 계산하지 않는다. 새 runtime에는 가상 위치 적분기가 없다.
+- **다음 우선순위:** 현장 카메라/차체/휠 실측과 보드·센서 사양 확정 → 펌웨어 정지/벤치 시험
+  → 실제 통신 및 임무/경로 연결. 완료한 추적 기능을 다시 만들지 않는다.
+
+설치/제약은 [카메라 runtime 안내](REAL_CAMERA_RUNTIME_KO.md),
+담당 범위/결과는 [이번 작업 기록](REAL_RUNTIME_WORK_KO.md)을 기준으로 한다.
+H1 햄스터, H2/B1/B2 비버이며 태그 ID는 유지한다. 실제 단일 runtime은 카메라 한 대를 처리한다.
+
+## 2026-09-05 구현 상태 (과거 기록)
 
 - 동료가 추가한 `robo_control` 패키지와 시뮬레이터를 공통 저장소 기반으로 사용한다.
   아래 초기 설계의 `robo_server` 명칭 대신 현재 패키지명은 `robo_control`이다.
@@ -25,20 +48,23 @@
 
 ## 팀 작업 중복 방지 인계표
 
-기준 구현 커밋은 `ef5e020`이다. 완료 항목은 새 구현을 만들지 말고 현재
-인터페이스를 확장한다.
+2026-09-07 기준이며 팀원 `7a1c37d`와 이번 `codex/real-camera-runtime` 작업을 포함한다.
+코드 완료와 실물 검증 완료를 구분한다. 완료 항목은 새로 만들지 말고 현재 인터페이스를 확장한다.
 
 | 작업 묶음 | 상태 | 팀 작업 기준 |
 |---|---|---|
 | M2 카메라/영상 입력 | 코드 완료 | `OpenCVCameraSource`, `VideoFileSource`, `CameraFrame` 재사용 |
 | M2 네 모서리·mm 보정 | 코드 완료 | `FieldCalibration` 재사용, 실물 정확도 시험만 남음 |
+| M2 렌즈 왜곡 보정/원본 사진 수집 | 코드 완료·실물 검증 대기 | `lens`, `lens_capture`, `lens_calibrate`; schema 2 내장 렌즈, 높이 시차/어안 모델은 별도 |
 | M2 프레임 안전 검사 | 코드 완료 | `FrameProcessor` 재사용, 검출 후 신선도 재검사 포함 |
 | M3 4대 AprilTag 프레임 관측 | 코드 완료 | `AprilTagDetector`와 `config/robot_tags.json` 재사용 |
 | M3 인쇄 태그 생성 | 코드 완료 | `tools/generate_robot_tags.py` 사용, 별도 태그 사전 생성 금지 |
-| M3 다중 프레임 추적/500ms 정지 | 미구현 | 다음 우선 작업, 마지막 관측을 영구 재사용하지 않음 |
-| M3 HSV 물체 검출/추적 | 미구현 | 별도 모듈로 병렬 작업 가능 |
+| M3 다중 프레임 추적 | 코드 완료 | 기존 `PoseTracker` 재사용; runtime 제어 관측은 200ms로 더 엄격하게 만료 |
+| M3 HSV 물체 검출/추적 | 코드 완료 | `ColorDetector`, `ObjectTracker` 재사용; 현장 HSV 검증 필요 |
+| 카메라→추적→목표 속도 runtime | 코드 완료·실물 시험 대기 | `runtime`, `runtime_session`, `runtime_io`; 모터 출력 미연결 |
+| 비동기 기록/분석/고장 시험 | 코드 완료 | `runtime_report`, `tests/test_runtime*.py`, `tools/verify_camera_runtime.py` |
 | 실제 고정 카메라 2대 융합 | 미구현 | 카메라별 보정·동기화·중복 관측 충돌 규칙 필요 |
-| WorldState/경로 엔진 연결 | 미구현 | tracker/watchdog 이후 연결 |
+| WorldState/임무/경로 실제 실행 연결 | 미구현 | 현재 runtime은 명시 목표 속도만 계산; 합성 임무 성공과 구분 |
 | ESP32·실제 모터 폐루프 | 미구현 | 실물 보정과 안전 게이트 통과 전 출력 금지 |
 
 현재 설정은 `hardware_verified=false`, `tag_size_mm=null`이다. 자동시험 통과를

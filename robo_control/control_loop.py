@@ -161,7 +161,8 @@ def predicted_conflicts(poses: dict, commands: dict, radii_mm: dict,
 class ClosedLoopController:
     """A bounded proportional measured-pose controller, exclusively for mock IO."""
     def __init__(self, *, roles=None, goals=None, session_id=None, radii_mm=None,
-                 limits: ControlLimits | None = None, enable_hardware=False):
+                 limits: ControlLimits | None = None, enable_hardware=False,
+                 field_size_mm=None):
         if enable_hardware is not False:
             raise ValueError("Hardware output is not implemented and cannot be enabled")
         self.roles = validate_roles(roles)
@@ -173,6 +174,11 @@ class ClosedLoopController:
         self.radii_mm = dict(radii_mm) if radii_mm is not None else {rid: 150.0 for rid in self.ids}
         if set(self.radii_mm) != set(self.ids) or any(not _number(v) or not 0 < v <= 1e6 for v in self.radii_mm.values()):
             raise ValueError("Every robot requires a positive complete body/arm/load envelope radius")
+        if field_size_mm is not None and (not isinstance(field_size_mm, (list, tuple))
+                or len(field_size_mm) != 2
+                or any(not _number(v) or not 0 < v <= 1e6 for v in field_size_mm)):
+            raise ValueError("Field size requires positive finite width and height in mm")
+        self.field_size_mm = tuple(field_size_mm) if field_size_mm is not None else None
         self.goals = {}
         self.set_goals(goals or {})
         self.sequence = 0
@@ -195,6 +201,11 @@ class ClosedLoopController:
                     or not all(_number(v) and abs(v) <= 1e6 for v in goal.values())):
                 raise ValueError("A goal needs finite x_mm, y_mm and optional heading_rad")
             validated[rid] = dict(goal)
+            if self.field_size_mm is not None:
+                inset = self.radii_mm[rid] + self.limits.clearance_mm
+                if any(not inset <= goal[key] <= extent - inset
+                       for key, extent in zip(("x_mm", "y_mm"), self.field_size_mm)):
+                    raise ValueError("Goal body envelope must fit inside the calibrated field")
         self.goals = validated
 
     def set_paused(self, paused=True):
@@ -287,6 +298,19 @@ class ClosedLoopController:
             proposals[rid] = (vx, vy, omega)
             reached[rid] = at_goal
         conflicts = predicted_conflicts(poses, proposals, self.radii_mm, limits) if poses else []
+        if poses and self.field_size_mm is not None:
+            for rid, pose in poses.items():
+                position, measured = pose["robot_center_mm"], pose["velocity_mm_s"]
+                proposed = proposals[rid][:2]
+                speed = max(math.hypot(*measured), math.hypot(*proposed))
+                inset = (self.radii_mm[rid] + limits.clearance_mm + speed * limits.command_ttl_s
+                         + speed * speed / (2 * limits.braking_mm_s2))
+                endpoints = [position, *[(position[0] + v[0] * limits.prediction_horizon_s,
+                                         position[1] + v[1] * limits.prediction_horizon_s)
+                                        for v in (measured, proposed)]]
+                if any(not inset <= point[axis] <= extent - inset
+                       for point in endpoints for axis, extent in enumerate(self.field_size_mm)):
+                    conflicts.append({"robot_ids": [rid], "reason": "field_boundary_envelope"})
         reason = "emergency_stop" if self.estop_latched else "paused" if self.paused else reason
         reason = reason or ("predicted_collision" if conflicts else None)
         # A robot which has reached its tolerance must remain still, including
