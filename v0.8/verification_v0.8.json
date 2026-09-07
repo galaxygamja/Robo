@@ -1,0 +1,287 @@
+{
+  "version": "v0.8-physical-stability",
+  "result": "PROTOTYPE_READY_CONDITIONAL",
+  "source_sha256": "4368f29832af26d72fad362b608920eb9b23575e83b7ed76efb2ac3b73a4885a",
+  "changes": {
+    "front_stability_skids": {
+      "quantity": 2,
+      "centres_xy_mm": [
+        [
+          -47.25,
+          34
+        ],
+        [
+          47.25,
+          34
+        ]
+      ],
+      "contact_z_mm": 0.0,
+      "size_each_mm": [
+        5,
+        10,
+        1.5
+      ],
+      "offset_disk_clearance_mm": 1.75
+    },
+    "moving_gate_floor_clearance_mm": 0.8,
+    "guide_clearance_each_side_mm": 0.55,
+    "gate_travel_mm": 11.2,
+    "servo_total_swing_deg": 88.854
+  },
+  "stability": {
+    "printed_structure_centroid_mm": [
+      0.0069,
+      -1.6414,
+      54.7094
+    ],
+    "support_polygon_xy_mm": [
+      [
+        0,
+        -40
+      ],
+      [
+        58,
+        -15
+      ],
+      [
+        47.25,
+        34
+      ],
+      [
+        -47.25,
+        34
+      ],
+      [
+        -58,
+        -15
+      ]
+    ],
+    "centroid_inside_support_polygon": true,
+    "nominal_front_tip_angle_deg": 33.08,
+    "nominal_rear_tip_angle_deg": 35.04
+  },
+  "checks": {
+    "all_print_stls_watertight_single_component_on_bed": true,
+    "kinematics_179_samples_monotonic": true,
+    "gate_up_fixed_parts_empty_intersection": true,
+    "gate_down_fixed_parts_empty_intersection": true,
+    "offset_disk_to_skids_empty_intersection": true,
+    "wheels_to_skids_empty_intersection": true,
+    "protected_capture_geometry_preserved": true
+  },
+  "protected_capture_parameters": {
+    "sample_diameter": true,
+    "sample_thickness": true,
+    "sample_radial_clearance": true,
+    "barrier_inner_radius": true,
+    "rear_barrier_arc": true,
+    "rear_left_center_angle": true,
+    "rear_right_center_angle": true,
+    "front_gate_arc": true,
+    "front_gate_height": true,
+    "front_gate_thickness": true,
+    "front_gate_up_bottom_z": true,
+    "funnel_front_width": true,
+    "funnel_exit_width": true,
+    "funnel_length": true,
+    "funnel_wall_height": true,
+    "funnel_wall_thickness": true,
+    "funnel_tip_radius": true,
+    "funnel_curve_strength": true
+  },
+  "printable_stls": [
+    {
+      "file": "01_upper_shell.stl",
+      "size_mm": [
+        100.0,
+        100.0,
+        90.7
+      ],
+      "volume_mm3_each": 88571.458,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "cff76579011caabbd9f0018590f05fbf521db9c1fab6be248dc0497f1c0875ea",
+      "quantity": 1
+    },
+    {
+      "file": "02_lower_frame_STABILITY_SKIDS.stl",
+      "size_mm": [
+        100.0,
+        100.0,
+        61.0
+      ],
+      "volume_mm3_each": 25182.472,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "dd4887b716ee6f8120279524beeb802e7c97c0edf38f6fe29cc748521eda5f81",
+      "quantity": 1
+    },
+    {
+      "file": "03_lid.stl",
+      "size_mm": [
+        100.0,
+        100.0,
+        3.0
+      ],
+      "volume_mm3_each": 28718.53,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "3833b5448b7578473aabcfb60175e7eb49a5cf0894c133da4589f8bded144733",
+      "quantity": 1
+    },
+    {
+      "file": "04_gate_slider_08MM_FLOOR.stl",
+      "size_mm": [
+        78.0,
+        16.2056,
+        33.0
+      ],
+      "volume_mm3_each": 4030.986,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "bd57914d03f5ad9d34f74c9891e67b66ef883adf54f426894a68509413ff97cb",
+      "quantity": 1
+    },
+    {
+      "file": "05_guide_cap_x2.stl",
+      "size_mm": [
+        19.0,
+        10.0,
+        7.0
+      ],
+      "volume_mm3_each": 683.938,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "4aaf33cabfafcda792747c557f9d60726cdb5a6a2841b3de9ee3558fe81d47f1",
+      "quantity": 2
+    },
+    {
+      "file": "06_servo_mount.stl",
+      "size_mm": [
+        100.0,
+        36.0,
+        20.0
+      ],
+      "volume_mm3_each": 8553.309,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "c46e50e928e71e5ea1c8f7350ab0c6f595eb36bcae05e1bafed4c0de5ab58baf",
+      "quantity": 1
+    },
+    {
+      "file": "07_servo_clamp.stl",
+      "size_mm": [
+        6.0,
+        36.0,
+        5.6
+      ],
+      "volume_mm3_each": 767.479,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "6cf22c5de432c9170ab86f60377d12605a815dfc2e3795328fd6b4b8df36b671",
+      "quantity": 1
+    },
+    {
+      "file": "08_connecting_link.stl",
+      "size_mm": [
+        6.0,
+        27.0,
+        2.5
+      ],
+      "volume_mm3_each": 355.006,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "62e88cb8af5e1a6c221db7735738e00b5d09b3872b1d31284e37fb73ee94dcfc",
+      "quantity": 1
+    },
+    {
+      "file": "09_motor_mount_left.stl",
+      "size_mm": [
+        34.5,
+        28.5,
+        34.0
+      ],
+      "volume_mm3_each": 6628.329,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "18a924f70714af727cec7bef15586e647876043b47c99efa4d95d25aa0262547",
+      "quantity": 1
+    },
+    {
+      "file": "10_motor_mount_right.stl",
+      "size_mm": [
+        34.5,
+        28.5,
+        34.0
+      ],
+      "volume_mm3_each": 6628.329,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "968a7a94467e2c75c9b2519680d1ae45a3fd69d6b3214a019b07fc3b27f68653",
+      "quantity": 1
+    },
+    {
+      "file": "11_electronics_deck.stl",
+      "size_mm": [
+        86.0,
+        52.0,
+        3.5
+      ],
+      "volume_mm3_each": 10370.587,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "686ee98ae3d1b36ff8a8f2c30b11b1a525be54bc778da0e8f5dddb94d45b3af7",
+      "quantity": 1
+    },
+    {
+      "file": "12_battery_tray.stl",
+      "size_mm": [
+        45.0,
+        45.3,
+        29.5
+      ],
+      "volume_mm3_each": 10814.111,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "dc2b7a97651f944c658d833d62ea08564e6c71d744b7efa607c99c1434d4e79f",
+      "quantity": 1
+    },
+    {
+      "file": "13_caster_mount.stl",
+      "size_mm": [
+        30.0,
+        10.5,
+        15.0
+      ],
+      "volume_mm3_each": 2094.981,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "855fc93d2b573750fa954eb8546bd28ea2531898ecf3f9f6b92fbdd8f0351343",
+      "quantity": 1
+    }
+  ],
+  "printed_part_types": 13,
+  "printed_piece_count": 14,
+  "approx_printed_volume_mm3": 194083.45,
+  "approx_PLA_mass_g_at_1_24g_cm3": 240.66,
+  "remaining_real_tests": [
+    "Apply low-friction PTFE/UHMW tape to both skid contact faces and verify turning current.",
+    "Measure actual motor, wheel, caster, servo, battery and wiring envelopes before full production.",
+    "Measure the assembled centre of mass; the mesh calculation excludes purchased hardware.",
+    "The 100 mm shell remains 126 mm wide including the current external wheels.",
+    "Replace the mecanum simulation command mapping with calibrated two-wheel differential drive before powered autonomous testing."
+  ]
+}
