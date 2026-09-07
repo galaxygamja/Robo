@@ -40,9 +40,10 @@
   },
   "software_status": {
     "differential_runtime_implemented": true,
-    "differential_runtime_scope": "runtime --mission; dry-run body velocity only, no wheel/PWM or transport",
+    "differential_runtime_scope": "runtime --mission; dry-run body velocity only, no wheel/PWM or physical transport",
     "wire_sender_and_fake_receiver_implemented": true,
-    "wire_scope": "differential drive/stop/ACK, in-memory framed bytes only; no runtime transport activation or manipulator/sensor wire messages",
+    "runtime_fake_wire_integration_implemented": true,
+    "wire_scope": "runtime --mission --wire-fake, fleet fault latch/reconnect/report, in-memory framed bytes only; no physical transport or manipulator/sensor wire messages",
     "legacy_controller_assumption": "four_wheel_mecanum_mock",
     "hardware_verified": false,
     "motion_permitted": false

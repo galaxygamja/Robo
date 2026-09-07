@@ -223,11 +223,20 @@ class WireCommandSender:
             self._invalid("controller_hold_must_zero_the_complete_fleet")
         return checked[self.robot_id], issued, math.floor(ttl * 1000), hold
 
-    def drive_from_packet(self, packet, now_s):
-        """Validate the entire controller output atomically, then address one robot."""
+    def drive_from_packet(self, packet, now_s, *, keep_armed_zero=False):
+        """Validate the entire controller output atomically, then address one robot.
+
+        Runtime may opt into fresh zero setpoints while other robots move or
+        a manipulation waits. This never overrides a genuine hold or fault.
+        """
         self._time(now_s)
+        if type(keep_armed_zero) is not bool:
+            self._invalid("keep_armed_zero_must_be_boolean")
         command, issued, ttl_ms, hold = self._controller_packet(packet, now_s)
-        if hold or command[2]:
+        benign_goal = (packet["status"] == "at_goal" and packet["mock_motion_permitted"]
+                       and packet["stop_reason"] is None and not packet["emergency_stop"]
+                       and not packet["localization_session_closed"] and not packet["conflicts"])
+        if (hold and not (keep_armed_zero and benign_goal)) or (command[2] and not keep_armed_zero):
             return self.stop(now_s, reason=packet["stop_reason"] or "controller_hold",
                              emergency=packet["emergency_stop"])
         self._idle()

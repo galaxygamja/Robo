@@ -1,5 +1,9 @@
 # Robo Control Lab
 
+> 2026-09-07 후속: [runtime 통신·전체 오류 처리 통합](docs/RUNTIME_WIRE_KO.md).
+> `runtime --mission ... --wire-fake`로 관측→임무→차동 명령→4대 가짜 수신기를 연결합니다.
+> 한 대의 통신 오류에도 전체 보류·정지를 요청하며 재출발은 명시적 확인이 필요합니다. 실제 장치 출력은 없습니다.
+
 > 2026-09-07 후속: [통신 규격 v1 · 4대 가짜 수신기 시험](docs/WIRE_PROTOCOL_KO.md).
 > `python -m robo_control.wire_lab --compact`로 차동 명령·ACK·중복·지연·끊김을 시험합니다.
 > 메모리 바이트 루프만 사용하며 실제 네트워크/직렬/모터/센서 출력은 켜지지 않습니다.

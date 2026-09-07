@@ -43,6 +43,8 @@ def _parser():
     execution = parser.add_mutually_exclusive_group()
     execution.add_argument("--goals", type=Path, help="reviewed field-mm goals JSON; omitted: all hold position")
     execution.add_argument("--mission", type=Path, help="reviewed qualifier task/robot-pose plan; differential dry-run")
+    parser.add_argument("--wire-fake", action="store_true",
+                        help="connect --mission to framed fake receivers; no network or hardware")
     parser.add_argument("--colors", type=Path, help="optional HSV profile, uses existing object tracker")
     parser.add_argument("--report", type=Path, required=True, help="NEW JSONL file, never overwritten")
     parser.add_argument("--duration-s", type=_positive, default=120.0)
@@ -228,6 +230,10 @@ def supervise(session, worker, mailbox, stop, worker_status, report, *, duration
             "configuration_id": session.configuration_id,
             "input_mode": "video_replay" if session.is_replay else "live_camera",
             "output_mode": "dry_run_commands",
+            "transport_mode": session.transport_mode,
+            "wire_fault": session.wire.fault if session.wire else None,
+            "wire_stop_acknowledged": (all(r["stop_acknowledged"] for r in final["wire"]["robots"])
+                                       if session.wire else None),
             "final": final, "device_io": False, "hardware_ready": False, "motion_permitted": False}
 
 
@@ -237,6 +243,8 @@ def main(argv=None):
     try:
         if args.moving_camera:
             raise ValueError("Moving camera needs per-frame dynamic calibration; static runtime is fixed-camera only")
+        if args.wire_fake and args.mission is None:
+            raise ValueError("--wire-fake requires --mission; legacy mecanum output is not a wire command")
         if args.camera is not None and args.camera < 0:
             raise ValueError("Camera index must be nonnegative")
         if not 20 <= args.tick_hz <= 100:
@@ -264,6 +272,7 @@ def main(argv=None):
                        "tag_size_tolerance_fraction": tags.tag_size_tolerance_fraction,
                        "hardware_verified": tags.hardware_verified},
                    "fleet": fleet_data, "colors": colors, "mission": mission_plan,
+                   "transport_mode": "fake_wire" if args.wire_fake else "mock",
                    "video": str(args.video.resolve()) if args.video else None, "camera": args.camera}
         configuration_id = hashlib.sha256(json.dumps(options, sort_keys=True, allow_nan=False).encode()).hexdigest()
         options["configuration_id"] = configuration_id
@@ -271,7 +280,8 @@ def main(argv=None):
             source_name=f"video:{args.video.resolve()}" if args.video else f"webcam:{args.camera}",
             is_replay=args.video is not None, goals=goals, radii_mm=radii,
             recovery_frames=args.recovery_frames, track_objects=args.colors is not None,
-            configuration_id=configuration_id, mission_plan=mission_plan, fleet=fleet_data)
+            configuration_id=configuration_id, mission_plan=mission_plan, fleet=fleet_data,
+            wire_fake=args.wire_fake)
         context = multiprocessing.get_context("spawn")
         mailbox, stop = LatestRecordMailbox(context), context.Event()
         worker_status = context.RawValue("i", 0)
@@ -285,7 +295,8 @@ def main(argv=None):
             "max_tick_gap_s": session.max_tick_gap_s, "recovery_frames": args.recovery_frames,
             "source_name": session.source_name, "is_replay": session.is_replay,
             "input_mode": "video_replay" if session.is_replay else "live_camera",
-            "output_mode": "dry_run_commands", "device_io": False, "motion_permitted": False})
+            "output_mode": "dry_run_commands", "transport_mode": session.transport_mode,
+            "device_io": False, "motion_permitted": False})
         worker = context.Process(target=camera_worker, args=(options, mailbox, stop, worker_status),
                                  name="robo-camera-detector", daemon=True)
         worker.start()
@@ -293,8 +304,9 @@ def main(argv=None):
             duration_s=args.duration_s, tick_hz=args.tick_hz, startup_timeout_s=args.startup_timeout_s)
         print(json.dumps(summary, ensure_ascii=True, allow_nan=False))
         successful_end = summary["status"] in {"duration_elapsed", "operator_stop", "video_eof", "mission_completed"}
+        transport_ok = session.wire is None or (not summary["wire_fault"] and summary["wire_stop_acknowledged"])
         return 0 if (successful_end and summary["detected_frames"] > 0 and summary["report_complete"]
-                     and summary["worker_stopped"]) else 1
+                     and summary["worker_stopped"] and transport_ok) else 1
     except (OSError, ValueError, RuntimeError, KeyError, TypeError) as exc:
         if report is not None:
             report.finish()

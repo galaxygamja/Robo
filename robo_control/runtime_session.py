@@ -11,6 +11,7 @@ from copy import deepcopy
 
 from .control_loop import ClosedLoopController, ControlLimits, MockActuatorBank
 from .mission_runtime import MissionExecutor
+from .runtime_wire import RuntimeWireSupervisor
 from .vision.calibration import COORDINATE_SYSTEM
 from .vision.object_tracking import ObjectTracker
 from .vision.tracking import PoseTracker
@@ -36,7 +37,11 @@ class LiveControlSession:
     def __init__(self, *, roles, field_size_mm, source_name, is_replay=False,
                  goals=None, radii_mm=None, recovery_frames=3, max_tick_gap_s=0.1,
                  limits=None, track_objects=False, session_id=None, configuration_id=None,
-                 mission_plan=None, fleet=None):
+                 mission_plan=None, fleet=None, wire_fake=False, wire_options=None):
+        if type(wire_fake) is not bool or (wire_options is not None and not wire_fake):
+            raise ValueError("Explicit fake-wire mode is required for wire options")
+        if wire_fake and mission_plan is None:
+            raise ValueError("Fake-wire runtime requires a differential mission plan")
         if not isinstance(source_name, str) or not source_name:
             raise ValueError("Pin a nonempty expected camera source name")
         if type(is_replay) is not bool or type(track_objects) is not bool:
@@ -60,6 +65,10 @@ class LiveControlSession:
             limits=limits, field_size_mm=field_size_mm, session_id=session_id, drive_model=drive_model)
         self.bank = MockActuatorBank(self.controller.ids, session_id=self.controller.session_id,
                                     watchdog_s=limits.command_ttl_s, limits=limits, drive_model=drive_model)
+        self.transport_mode = "fake_wire" if wire_fake else "mock"
+        self.wire = (RuntimeWireSupervisor(self.controller.ids, session_id=self.controller.session_id,
+                    limits=limits, link_options=wire_options) if wire_fake else None)
+        self._wire_fault_handled = False
         if self.mission:
             self.mission.session_id = self.controller.session_id
         self.world_adapter = (ObservationWorldAdapter(roles=roles,
@@ -123,8 +132,48 @@ class LiveControlSession:
         packet = self.controller.tick(record, now_s)
         packet["stop_reason"] = reason
         self.bank.receive(packet, now_s)
+        if self.wire and self.wire.started and not self.wire.fault and not self.wire.closed:
+            self.wire.stop(now_s, reason[:128])
+        elif self.wire and not self.wire.closed:
+            self.wire.poll(now_s)  # Only stop/idle work can remain on a faulted/closed link.
         self.command, self.status = packet, reason
         return packet
+
+    def _wire_failure(self, now_s):
+        """One fleet fault interrupts the mission once; camera recovery cannot rearm."""
+        reason = "wire_fault:" + str(self.wire.fault)
+        if not self._wire_fault_handled:
+            self._wire_fault_handled = True
+            self._hold(now_s, reason)
+        self.status = reason
+        if self.mission.fault:
+            return self.close(now_s, self.mission.fault)
+        return self._event(now_s, command=self.command)
+
+    def reconnect_wire(self, now_s, *, operator_confirmed=False):
+        """Explicit API recovery; CLI users start a new reviewed runtime session.
+
+        A closed session or interrupted manipulation is never resumed here.
+        Reconnection invalidates prior observations and needs three NEW frames.
+        """
+        if self.wire is None or self.closed_reason is not None or self.mission.fault:
+            raise ValueError("Only an open, non-faulted mission with fake-wire mode can reconnect")
+        if not _finite(now_s) or now_s < 0 or (self.now is not None and now_s < self.now):
+            raise ValueError("Reconnect requires the current monotonic runtime clock")
+        if operator_confirmed is not True or not self.wire.fault:
+            raise ValueError("A latched wire fault and explicit operator confirmation are required")
+        if self.world_adapter.poll(now_s).status == "closed":
+            raise ValueError("A closed observation source requires a new reviewed runtime session")
+        self._hold(now_s, "wire_explicit_reconnect")
+        if self.mission.fault:
+            raise ValueError("Interrupted manipulation requires a new reviewed mission session")
+        self.wire.reconnect(now_s, operator_confirmed=True)
+        self.now = now_s
+        self._wire_fault_handled = False
+        self.last_capture_s = None
+        self.world_adapter.invalidate(now_s, reason="wire_reconnect_requires_new_observations")
+        self.status = "wire_reconnecting"
+        return self._event(now_s, command=self.command)
 
     def _event(self, now_s, *, command=None, observation=None):
         if self.world_adapter:
@@ -141,6 +190,8 @@ class LiveControlSession:
                 "actuator": self.bank.snapshot(), "is_replay": self.is_replay,
                 "input_mode": "video_replay" if self.is_replay else "live_camera",
                 "output_mode": "dry_run_commands",
+                "transport_mode": self.transport_mode,
+                "wire": self.wire.snapshot() if self.wire else None,
                 "device_io": False, "hardware_ready": False, "motion_permitted": False}
 
     def advance(self, record, now_s, *, feedback=None):
@@ -151,6 +202,8 @@ class LiveControlSession:
         self.tick_sequence += 1
         self.bank.tick(now_s)
         if self.closed_reason is not None:
+            if self.wire:
+                self.wire.poll(now_s)
             return self._event(now_s)
         if previous_tick is not None and now_s - previous_tick > self.max_tick_gap_s + 1e-9:
             return self.close(now_s, "supervisor_deadline_missed")
@@ -164,13 +217,26 @@ class LiveControlSession:
         expired = (self.last_capture_s is not None
                    and now_s >= self.last_capture_s + self.controller.limits.max_pose_age_s)
         if expired:
+            if self.wire and self.wire.started and not self.wire.fault:
+                # Stop BEFORE draining queued motion, including when a new
+                # camera frame happens to arrive on the old expiry boundary.
+                self.wire.stop(now_s, "observation_watchdog")
+                return self._wire_failure(now_s)
             self.fresh_streak = 0
             if self.mission:
                 self.mission.interrupt("observation_watchdog")
+        if self.wire and self.wire.fault:
+            self.wire.poll(now_s)
+            if not self._wire_fault_handled:
+                return self._wire_failure(now_s)
         if record is None:
             if expired and self.status != "observation_watchdog":
                 packet = self._hold(now_s, "observation_watchdog")
                 return self._event(now_s, command=packet)
+            if self.wire:
+                self.wire.poll(now_s)
+                if self.wire.fault and not self._wire_fault_handled:
+                    return self._wire_failure(now_s)
             return self._event(now_s)
         # Copy at the boundary: neither upstream mutation nor caller edits to
         # a returned diagnostic record may change tracking/controller history.
@@ -203,28 +269,55 @@ class LiveControlSession:
                 reason = "stale_observation"
             packet = self._hold(now_s, reason, record)
         else:
+            if self.wire:
+                # Validate current observations and known deadlines BEFORE
+                # allowing queued drive delivery; then process ACKs before
+                # generating a causally new controller command.
+                self.wire.poll(now_s)
+                if self.wire.fault:
+                    if not self._wire_fault_handled:
+                        return self._wire_failure(now_s)
+                    self.controller.set_paused(True)
+                    packet = self.controller.tick(record, now_s)
+                    packet["stop_reason"] = "wire_fault:" + str(self.wire.fault)
+                    self.bank.receive(packet, now_s)
+                    self.command, self.status = packet, packet["stop_reason"]
+                    return self._event(now_s, command=packet, observation=record)
             self.last_capture_s = stamp
             self.fresh_streak = min(self.recovery_frames, self.fresh_streak + 1)
             ready = self.fresh_streak >= self.recovery_frames and (world is None or world.ready)
-            self.controller.set_paused(not ready)
-            if self.mission and ready:
+            started_now = False
+            if self.wire and ready and not self.wire.started:
+                # Explicit fake-wire mode authorizes this FIRST handshake only.
+                # Camera startup cannot spend a receiver's movement lease.
+                self.wire.start(now_s)
+                started_now = True
+            transport_ready = self.wire is None or (self.wire.ready and not started_now)
+            self.controller.set_paused(not ready or not transport_ready)
+            if self.mission and ready and transport_ready:
                 self.controller.set_goals(self.mission.prepare(record, now_s, feedback, world=world))
                 if self.mission.fault:
                     return self.close(now_s, self.mission.fault)
             packet = self.controller.tick(record, now_s)
             if not ready:
                 packet["stop_reason"] = "confirming_observation"
-            if self.mission and ready:
+            if self.mission and ready and transport_ready:
                 self.mission.guard_command(packet, record)
                 if self.mission.fault:
                     return self.close(now_s, self.mission.fault)
             self.bank.receive(packet, now_s)
-            if self.mission and ready and self.bank.reason == "mock_active":
+            if self.wire and ready and transport_ready:
+                self.wire.submit(packet, now_s)
+            if self.wire and self.wire.fault:
+                return self._wire_failure(now_s)
+            if (self.mission and ready and self.bank.reason == "mock_active"
+                    and (self.wire is None or self.wire.ready)):
                 self.mission.accept_arrival(packet, record, now_s)
                 if self.mission.done:
                     return self.close(now_s, "mission_completed")
             self.command = packet
-            self.status = packet["stop_reason"] or packet["status"]
+            self.status = ("wire_connecting" if started_now else "wire_awaiting_ack"
+                           if self.wire and ready and not transport_ready else packet["stop_reason"] or packet["status"])
         return self._event(now_s, command=deepcopy(packet), observation=record)
 
     def close(self, now_s, reason="operator_stop"):
@@ -237,6 +330,8 @@ class LiveControlSession:
             # the local stop latch during shutdown.
             self.controller.emergency_stop()
             self.bank.emergency_stop()
+            if self.wire:
+                self.wire.close(now_s, reason[:128])
             if self.mission:
                 self.mission.close()
                 self.world_adapter.close(now_s)
