@@ -1088,3 +1088,37 @@
   font-size: 0.8125rem;
   line-height: 1.5;
 }
+.schedule-score {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+.schedule-score span {
+  padding: 0.65rem 0.4rem;
+  background: #0f172a;
+  border-radius: 0.4rem;
+  font-size: 0.875rem;
+}
+.schedule-score b {
+  display: block;
+  color: #67e8f9;
+  font-size: 1.25rem;
+  margin-top: 0.3rem;
+}
+.schedule-panel details {
+  margin-top: 0.8rem;
+  font-size: 0.875rem;
+}
+.schedule-panel summary {
+  cursor: pointer;
+}
+.schedule-orders p {
+  line-height: 1.65;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 0.5rem;
+}
+.schedule-panel button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

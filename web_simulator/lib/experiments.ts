@@ -7,6 +7,7 @@ import {
   type ObservationMode,
   type World,
 } from './mission.ts';
+import { applyReferenceSchedule } from './optimized-world.ts';
 
 export type ComparisonMode = 'none' | 'hover' | 'active';
 export type ComparisonScenario = World['scenario'];
@@ -26,6 +27,8 @@ export function createComparison(
   optimize = true,
 ): World {
   const world = createWorld(mode === 'none' ? 'localization' : 'drone');
+  world.coordination.enabled = optimize;
+  if (optimize) applyReferenceSchedule(world);
   if (mode !== 'none') world.drone.strategy = mode;
   world.scenario = scenario;
   world.coordination.enabled = optimize;
@@ -46,6 +49,7 @@ export function comparisonResult(
       : 'none') as ComparisonMode,
     scenario: world.scenario,
     optimized: world.coordination.enabled,
+    teamSchedule: !!world.coordination.fixedSchedule,
     time: world.elapsed,
     remaining: 120 - world.elapsed,
     score: scoreWorld(world.items).points,
@@ -85,8 +89,14 @@ export function runComparison(
 export function createExperiment(
   mode: ObservationMode,
   count: 4 | 5 = 4,
+  optimize = true,
 ): World {
-  if (count === 4) return createWorld(mode);
+  if (count === 4)
+    return createComparison(
+      mode === 'drone' ? 'active' : 'none',
+      'normal',
+      optimize,
+    );
   if (mode === 'drone')
     throw new Error(
       'Five-robot stress fixture uses the ground drone parking footprint: choose localization',
@@ -118,6 +128,11 @@ export function experimentReport(world: World) {
     scenario: world.scenario,
     scheduled_missing_id: world.scheduledMissingId,
     coordination: world.coordination,
+    schedule: world.robots.map((r) => ({
+      id: r.id,
+      departure_s: r.delay,
+      jobs: r.jobs,
+    })),
     observation: {
       mode: world.observer.mode,
       delay_ms: world.observer.delayMs,

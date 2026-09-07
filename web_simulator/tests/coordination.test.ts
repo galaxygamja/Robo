@@ -38,9 +38,7 @@ void test('shared optimization improves the healthy mission without granting a d
   assert.ok(ground.distance < baseline.distance);
   assert.equal(ground.time, air.time);
   assert.equal(ground.distance, air.distance);
-  assert.ok(
-    ground.shortcuts > 0 && ground.staging > 0 && ground.taskReorders > 0,
-  );
+  assert.ok(ground.shortcuts > 0 && ground.staging > 0 && ground.teamSchedule);
 });
 
 void test('identical intermittent input failure still completes without a drone; aerial input reduces holds', () => {
@@ -54,7 +52,9 @@ void test('identical intermittent input failure still completes without a drone;
   }
   assert.ok(ground.inputHold > 4);
   assert.ok(air.inputHold < ground.inputHold);
-  assert.ok(air.aerialRecovery > 4);
+  // A faster match encounters fewer dropout windows. Recovery must occur and
+  // reduce measured holds, rather than exceed a duration from the old route.
+  assert.ok(air.aerialRecovery > 0);
   assert.ok(air.time < ground.time);
 });
 

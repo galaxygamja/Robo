@@ -41,9 +41,26 @@ void test('five-robot congestion fixture yields and relocates a parked body, all
 void test('delayed observations contain past positions; 400ms input cannot move a robot', () => {
   const w = createExperiment('localization');
   w.observer.delayMs = 100;
-  for (let i = 0; i < 300; i++) advance(w);
+  let sawPastMovingPosition = false;
+  for (let i = 0; i < 300; i++) {
+    advance(w);
+    sawPastMovingPosition ||= w.robots.some((r) => {
+      const sample = w.observer.poses[r.id];
+      return (
+        sample &&
+        w.elapsed - sample.at >= 0.1 - 1e-9 &&
+        Math.hypot(
+          sample.x_mm - r.pose.x * 1000,
+          sample.y_mm - r.pose.y * 1000,
+        ) > 0.01
+      );
+    });
+  }
   assert.ok(w.observer.frameAge >= 0.1 - 1e-9 && w.observer.frameAge < 0.21);
-  assert.notEqual(w.observer.poses.B1.y_mm, w.robots[0].pose.y * 1000);
+  assert.ok(
+    sawPastMovingPosition,
+    'a moving robot must expose a delayed, not current, pose',
+  );
   w.observer.delayMs = 400;
   w.observer.queue = [];
   for (let i = 0; i < 30; i++) advance(w);
@@ -63,15 +80,19 @@ void test('delayed observations contain past positions; 400ms input cannot move 
 void test('bounded coordinate jitter is real telemetry, excessive error holds; e-stop stays latched', () => {
   const w = createExperiment('localization');
   w.observer.noiseMm = 0.5;
+  const captured = { ...w.robots[0].pose };
   advance(w);
-  const p = w.observer.poses.B1,
-    r = w.robots[0];
+  const p = w.observer.poses.B1;
   assert.ok(
     Math.abs(
-      Math.hypot(p.x_mm - r.pose.x * 1000, p.y_mm - r.pose.y * 1000) - 0.5,
+      Math.hypot(p.x_mm - captured.x * 1000, p.y_mm - captured.y * 1000) - 0.5,
     ) < 1e-8,
   );
   w.observer.noiseMm = 3;
+  // Wait for the next 10Hz capture to expose the new error bound. The previous
+  // healthy sample is still valid until that capture arrives.
+  for (let i = 0; i < 6; i++) advance(w);
+  assert.match(w.safetyReason, /1mm/);
   const before = w.robots.map((r) => ({ ...r.pose }));
   for (let i = 0; i < 300; i++) advance(w);
   assert.deepEqual(

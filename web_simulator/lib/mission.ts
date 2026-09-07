@@ -59,6 +59,8 @@ export type Item = Point & {
 };
 export type Job = {
   itemId: string;
+  // Stable destination job when another same-color cylinder is selected.
+  slotId?: string;
   destination: ZoneId | 'LAB';
   drop: Point;
   slot?: number;
@@ -142,6 +144,10 @@ export type World = {
   initialRobotPoses: Record<string, Pose>;
   coordination: {
     enabled: boolean;
+    // A full-team schedule is replayed in its validated order. Online geometric
+    // replanning and every collision/sensor check remain enabled.
+    fixedSchedule?: boolean;
+    scheduleName?: string;
     routeShortcuts: number;
     stagingChanges: number;
     plannedDistanceSaved: number;
@@ -967,7 +973,12 @@ function unlock(world: World, robot: Robot) {
   });
 }
 export function optimizePendingJobs(world: World, robot: Robot) {
-  if (!coordinationUsable(world) || robot.payload || robot.role !== 'beaver')
+  if (
+    world.coordination.fixedSchedule ||
+    !coordinationUsable(world) ||
+    robot.payload ||
+    robot.role !== 'beaver'
+  )
     return;
   const remaining = robot.jobs.slice(robot.jobIndex);
   // Never reorder the loaded cube magazine or change item ownership/drop slots.

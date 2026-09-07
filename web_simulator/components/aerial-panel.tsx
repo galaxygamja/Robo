@@ -102,7 +102,7 @@ export default function AerialPanel({
         </button>
       </div>
       <p className="compact-note">
-        선택하면 고장 설정을 지우고 바로 시작합니다. 첫 로봇은 4초에 출발합니다.
+        선택하면 고장 설정을 지우고 검증된 팀 동선으로 시작합니다.
       </p>
       <label className="shared-optimizer">
         <input
@@ -118,7 +118,7 @@ export default function AerialPanel({
             );
           }}
         />
-        공통 경로·작업 순서 최적화 (변경 시 재시작)
+        전체 완료 시간·경로 최적화 (변경 시 재시작)
       </label>
       <p className="compact-note">
         속도·안전 간격·최적화 알고리즘은 두 방식에 같습니다. 드론은 추가 위치

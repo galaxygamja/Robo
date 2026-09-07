@@ -39,6 +39,8 @@ import {
   SCENARIO_LABEL,
 } from '@/lib/experiments';
 import AerialPanel from './aerial-panel';
+import SchedulePanel from './schedule-panel';
+import { applySchedule } from '@/lib/scheduling';
 import { footprint, sceneOccluders, REFERENCE_MARKERS } from '@/lib/aerial';
 import './mission.css';
 
@@ -524,7 +526,7 @@ function FieldView({
 }
 
 export default function MissionSimulator() {
-  const [world, setWorld] = useState<World>(() => createWorld('drone'));
+  const [world, setWorld] = useState<World>(() => createComparison('active'));
   const worldRef = useRef<World>(world);
   const [running, setRunning] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -552,6 +554,7 @@ export default function MissionSimulator() {
       worldRef.current = createExperiment(
         observation,
         worldRef.current.robots.length === 5 && observation !== 'drone' ? 5 : 4,
+        optimize,
       );
       worldRef.current.coordination.enabled = optimize;
       setRunning(mode !== undefined);
@@ -865,6 +868,17 @@ export default function MissionSimulator() {
                   지금 조기 종료 · 최종 채점
                 </button>
               </section>
+              <SchedulePanel
+                world={world}
+                load={(plan) => {
+                  const next = createWorld(worldRef.current.observer.mode);
+                  if (plan) applySchedule(next, plan);
+                  worldRef.current = next;
+                  setSelectedId('H1');
+                  setRunning(true);
+                  publish();
+                }}
+              />
               <AerialPanel
                 world={world}
                 change={(fn) => {
