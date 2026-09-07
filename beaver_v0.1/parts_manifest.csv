@@ -1,0 +1,8 @@
+file,category,quantity,size_x_mm,size_y_mm,size_z_mm,print_orientation,support,notes
+stl_print/01_mounting_base.stl,printable,1,96,72,23.3,as_exported,none,"integrated rear pocket wall, jaw pivots, and yoke guides"
+stl_print/02_jaw_left.stl,printable,1,32.3471,37.3111,23,as_exported,none,"left C-jaw"
+stl_print/03_jaw_right.stl,printable,1,32.3471,37.3111,23,as_exported,none,"right C-jaw"
+stl_print/04_slider_yoke.stl,printable,1,49,5,2.5,as_exported,none,"transverse crank slot"
+stl_print/05_link_x2.stl,printable,2,13,5,2.5,as_exported,none,"print the same file twice"
+stl_print/06_servo_mount.stl,printable,1,47.5,16,45.5,as_exported,"build-plate only/local","brim recommended; support upper walls above yoke passage"
+reference/patient_cylinder_30x20_REFERENCE_ONLY.stl,reference_only,0,30,30,20,as_exported,none,"do not print as a robot part"

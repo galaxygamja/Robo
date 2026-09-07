@@ -1,0 +1,150 @@
+{
+  "design": "Beaver Robot v0.1",
+  "coordinate_system": "+Y forward, Z=0 arena floor, millimetres",
+  "mechanism": "one servo crank, transverse-slot slider yoke, two identical links, mirrored C-jaws",
+  "checks": {
+    "patient_reference_exact_30x20": true,
+    "closed_patient_to_jaw_clearance_mm": 1.4999,
+    "closed_patient_to_rear_collar_clearance_mm": 1.4997,
+    "open_patient_to_jaw_clearance_at_capture_mm": 8.1693,
+    "closed_front_throat_mm": 8.541,
+    "open_entrance_width_mm": 38.2432,
+    "open_mouth_off_axis_allowance_each_side_mm": 4.1216,
+    "centered_open_approach_22_to_50mm_clear": true,
+    "centered_approach_minimum_clearance_mm": 1.4997,
+    "base_floor_overlap_with_patient_mm2": 0.0,
+    "servo_mount_low_wall_overlap_with_patient_mm2": 0.0,
+    "link_plane_above_patient_top_clearance_mm": 0.5,
+    "servo_body_above_patient_top_clearance_mm": 4.0,
+    "jaw_to_collar_overlap_closed_mm2": 0.0,
+    "jaw_to_collar_minimum_gap_closed_mm": 2.6777,
+    "jaw_to_collar_overlap_open_mm2": 0.0,
+    "left_to_right_jaw_overlap_closed_mm2": 0.0,
+    "left_to_right_jaw_overlap_open_mm2": 0.0,
+    "link_length_closed_mm": 8.0,
+    "link_length_open_mm": 8.0,
+    "yoke_travel_mm": 3.548,
+    "servo_total_swing_deg": 52.6555,
+    "robot_envelope_closed_mm": [
+      96.0,
+      90.3111,
+      48.5
+    ],
+    "robot_envelope_open_mm": [
+      96.0,
+      98.2873,
+      48.5
+    ],
+    "robot_envelope_worst_case_mm": [
+      96.0,
+      98.2873,
+      48.5
+    ],
+    "within_100mm_cube_open_and_closed": true
+  },
+  "printable_stls": [
+    {
+      "file": "01_mounting_base.stl",
+      "quantity": 1,
+      "size_mm": [
+        96.0,
+        72.0,
+        23.3
+      ],
+      "volume_mm3_each": 13145.351,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "7c475e72d85f93da8ac4c28fceb8b17f77b73f4ae12fd4e3539104b678803539"
+    },
+    {
+      "file": "02_jaw_left.stl",
+      "quantity": 1,
+      "size_mm": [
+        32.3471,
+        37.3111,
+        23.0
+      ],
+      "volume_mm3_each": 4705.454,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "c1eef5927f00924c29f2d80e4b3a65dac0a5dbc7216ae7d70d81b1afa7996678"
+    },
+    {
+      "file": "03_jaw_right.stl",
+      "quantity": 1,
+      "size_mm": [
+        32.3471,
+        37.3111,
+        23.0
+      ],
+      "volume_mm3_each": 4705.454,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "b3ef6651ac8308af8b20630ebd56abe23eef1d7ffdb9faa2e6d1fc1961fb1700"
+    },
+    {
+      "file": "04_slider_yoke.stl",
+      "quantity": 1,
+      "size_mm": [
+        49.0,
+        5.0,
+        2.5
+      ],
+      "volume_mm3_each": 532.819,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "db58020c037e1d2c959c96c05d856a7218804c5129642d9acbbe67eba9b4732c"
+    },
+    {
+      "file": "05_link_x2.stl",
+      "quantity": 2,
+      "size_mm": [
+        13.0,
+        5.0,
+        2.5
+      ],
+      "volume_mm3_each": 122.505,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "820b5a7db2cab8849755b6b9fec411a7a5b4e6d9f453ef000568ec0eca13e664"
+    },
+    {
+      "file": "06_servo_mount.stl",
+      "quantity": 1,
+      "size_mm": [
+        47.5,
+        16.0,
+        45.5
+      ],
+      "volume_mm3_each": 6800.076,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "c2cf0ec921c5391bbd8cfe749592c29d53a1058f6316daefdb1da35b7787a75f"
+    }
+  ],
+  "printed_part_instances": 7,
+  "approx_total_printed_volume_mm3": 30134.16,
+  "approx_PLA_mass_g_at_1_24g_cm3": 37.37,
+  "print_notes": {
+    "support_recommended": [
+      "06_servo_mount.stl: local support under the upper wall sections above the yoke passage"
+    ],
+    "brim_recommended": [
+      "06_servo_mount.stl"
+    ],
+    "quantity_note": "Print 05_link_x2.stl twice; all other printable STLs once."
+  },
+  "limitations": [
+    "Nominal CAD geometry only; no physical capture, impact, wear, torque or tip-over test has been performed.",
+    "The servo body is a parameterized SG90-class keep-out; actual tabs, spline, horn and cable must be measured.",
+    "The drivetrain/electronics volume is a reference keep-out, not a finished powered mobile chassis.",
+    "The OPEN off-axis value is mouth geometry; intentional jaw contact is expected to guide a misaligned cylinder."
+  ],
+  "result": "PASS: nominal 30 x 20 mm patient capture and 100 mm cube constraints"
+}
