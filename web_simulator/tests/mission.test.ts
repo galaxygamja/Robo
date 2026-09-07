@@ -49,12 +49,40 @@ void test('default fleet is one hamster and three beavers with position telemetr
       assert.equal(item.kind === 'disc', r.role === 'hamster');
     }
   for (const r of w.robots.filter((r) => r.role === 'beaver'))
-    assert.equal(r.magazine.length, r.id === 'H2' ? 0 : 2);
+    assert.equal(r.magazine.length, r.id === 'B2' ? 2 : 1);
   assert.equal(
     w.items.filter((i) => i.carrier).every((i) => i.kind === 'cube'),
     true,
   );
   assert.equal(scoreWorld(w.items).points, 0);
+});
+
+void test('medical kits are preloaded 1/2/1 with one dedicated beaver per destination', () => {
+  for (const mode of ['localization', 'drone'] as const) {
+    const world = createWorld(mode);
+    const expected = [
+      { id: 'B1', kits: ['C2'], destination: 'PCC-L' },
+      { id: 'B2', kits: ['C1', 'C3'], destination: 'H' },
+      { id: 'H2', kits: ['C4'], destination: 'PCC-R' },
+    ];
+    for (const { id, kits, destination } of expected) {
+      const robot = world.robots.find((r) => r.id === id)!;
+      assert.deepEqual(robot.magazine, kits);
+      const deliveries = robot.jobs.filter((j) => j.itemId.startsWith('C'));
+      assert.deepEqual(
+        deliveries.map((j) => j.itemId),
+        kits,
+      );
+      assert.ok(deliveries.every((j) => j.destination === destination));
+      assert.deepEqual(robot.jobs.slice(0, kits.length), deliveries);
+      for (const kit of kits) {
+        const item = world.items.find((i) => i.id === kit)!;
+        assert.equal(item.carrier, id);
+        assert.deepEqual([item.x, item.y], [robot.pose.x, robot.pose.y]);
+        assert.equal(item.released, false);
+      }
+    }
+  }
 });
 
 void test('assumed 150mm Bat and four nominal bodies fit the 480 by 280mm start', () => {

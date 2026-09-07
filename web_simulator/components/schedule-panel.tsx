@@ -74,11 +74,18 @@ export default function SchedulePanel({
         햄스터 1대·비버 3대, 정상 위치 입력 기준. 작업 배분·출발 시각·색별
         원기둥 선택을 함께 비교합니다.
       </p>
+      <p className="compact-note">
+        <b>의료키트 1·2·1 전담 배송</b>
+        <br />
+        B1 → PCC-L 1개 · B2 → 병원 2개 · B3 → PCC-R 1개
+        <br />
+        의료키트 담당은 고정하며, 배송 후 원기둥 동선을 최적화합니다.
+      </p>
       {result && (
         <>
           <div className="schedule-score" aria-live="polite">
             <span>
-              기존 동선 <b>{result.baseline.time.toFixed(2)}초</b>
+              1·2·1 기본 동선 <b>{result.baseline.time.toFixed(2)}초</b>
             </span>
             <span>
               찾은 동선 <b>{result.best.time.toFixed(2)}초</b>
@@ -104,7 +111,7 @@ export default function SchedulePanel({
             load(null);
           }}
         >
-          기존 동선 실행
+          1·2·1 기본 동선 실행
         </button>
         <button
           type="button"

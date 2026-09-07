@@ -229,9 +229,10 @@ void test('route cost uses the known map and fresh inventory without changing ta
   };
   const h2 = w.robots.find((r) => r.id === 'H2')!,
     ids = h2.jobs.map((j) => j.itemId).toSorted();
+  // The new B3 must deliver its kit before cylinder route reordering.
   advance(w);
-  assert.equal(h2.jobs[0].itemId, 'G2');
-  assert.equal(h2.taskReorders, 1);
+  assert.equal(h2.jobs[0].itemId, 'C4');
+  assert.equal(h2.taskReorders, 0);
   assert.deepEqual(h2.jobs.map((j) => j.itemId).toSorted(), ids);
-  assert.equal(w.robots[0].jobs[0].itemId, 'C1');
+  assert.equal(w.robots[0].jobs[0].itemId, 'C2');
 });

@@ -116,6 +116,24 @@ class ScoringTests(unittest.TestCase):
 
 
 class AllocationTests(unittest.TestCase):
+    def test_medical_kits_have_one_two_one_loads_and_dedicated_destinations(self) -> None:
+        data, pieces, zones = load_scenario(CONFIG)
+        tasks = configured_tasks(pieces, zones, data["task_plan"])
+        piece_map = {piece.id: piece for piece in pieces}
+        expected = {"B1": (["C2"], "PCC-L"), "B2": (["C1", "C3"], "H"),
+                    "H2": (["C4"], "PCC-R")}
+        robots = {robot["id"]: robot for robot in data["ground_robots"]}
+        for robot_id, (ids, destination) in expected.items():
+            kits = [p for p in pieces if p.kind == "cube" and p.held_by == robot_id]
+            self.assertEqual([p.id for p in kits], ids)
+            deliveries = [t for t in tasks if t.robot_id == robot_id and piece_map[t.piece_id].kind == "cube"]
+            self.assertEqual([t.piece_id for t in deliveries], ids)
+            self.assertEqual({t.destination_id for t in deliveries}, {destination})
+            for kit in kits:
+                self.assertEqual((kit.x_mm, kit.y_mm),
+                                 (robots[robot_id]["x_mm"], robots[robot_id]["y_mm"]))
+                self.assertFalse(kit.released)
+
     def test_explicit_scene_plan_uses_web_assignments_and_positions(self) -> None:
         data, pieces, zones = load_scenario(CONFIG)
         tasks = {task.piece_id: task for task in configured_tasks(pieces, zones, data["task_plan"])}

@@ -9,7 +9,11 @@ import {
 } from '../lib/scheduling.ts';
 import { applyReferenceSchedule } from '../lib/optimized-world.ts';
 import { referenceSchedule } from '../lib/reference-schedule.ts';
-import { createComparison, runComparison } from '../lib/experiments.ts';
+import {
+  createComparison,
+  createExperiment,
+  runComparison,
+} from '../lib/experiments.ts';
 
 void test('cached winner reproduces its measured full-score finish in the exact engine', () => {
   assert.ok(referenceSchedule);
@@ -117,6 +121,26 @@ void test('invalid assignments are rejected atomically and started work is immut
     plan = captureSchedule(started);
   advance(started);
   assert.throws(() => applySchedule(started, plan));
+});
+
+void test('five-robot stress fixture donates a cylinder, never a preloaded medical kit', () => {
+  const original = createWorld();
+  const expanded = createExperiment('localization', 5);
+  for (const robot of original.robots) {
+    const actual = expanded.robots.find((r) => r.id === robot.id)!;
+    assert.deepEqual(actual.magazine, robot.magazine);
+    assert.deepEqual(
+      actual.jobs.slice(0, robot.magazine.length),
+      robot.jobs.slice(0, robot.magazine.length),
+    );
+  }
+  const extra = expanded.robots.find((r) => r.id === 'extra5')!;
+  assert.deepEqual(extra.magazine, []);
+  assert.deepEqual(
+    extra.jobs.map((j) => j.itemId),
+    ['G2'],
+  );
+  assert.equal(applyReferenceSchedule(expanded), false);
 });
 
 void test('changed layouts, sensor conditions and expanded fleets cannot use cached reference measurements', () => {

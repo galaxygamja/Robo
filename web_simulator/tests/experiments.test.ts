@@ -10,7 +10,7 @@ import {
 import { createExperiment, experimentReport } from '../lib/experiments.ts';
 import { parsePositionLog } from '../lib/localization.ts';
 
-void test('five-robot congestion fixture yields and relocates a parked body, all 16 items delivered without teleport/contact', () => {
+void test('five-robot congestion fixture preserves kit ownership and delivers all 16 items without teleport/contact', () => {
   const w = createExperiment('localization', 5);
   let minimum = Infinity;
   while (!w.ended) {
@@ -32,7 +32,7 @@ void test('five-robot congestion fixture yields and relocates a parked body, all
   assert.ok(w.elapsed < 120);
   assert.equal(scoreWorld(w.items).points, 160);
   assert.ok(w.robots.every((r) => r.phase === 'complete'));
-  assert.ok(w.robots.find((r) => r.id === 'extra5')!.recoveryAttempts > 0);
+  assert.equal(w.robots.find((r) => r.id === 'extra5')!.served, 1);
   assert.ok(minimum >= SPEC.margin - 1e-8);
   assert.equal(experimentReport(w).device_io, false);
   assert.throws(() => createExperiment('drone', 5), /parking footprint/);

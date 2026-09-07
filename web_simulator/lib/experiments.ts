@@ -102,8 +102,13 @@ export function createExperiment(
       'Five-robot stress fixture uses the ground drone parking footprint: choose localization',
     );
   const fleet = createWorld(mode).robots;
-  const donor = fleet.find((r) => r.id === 'H2')!;
-  const job = donor.jobs.shift()!;
+  // Donate a green cylinder, not a loaded kit or an early hospital obstruction.
+  // All three original beavers retain their immutable medical-kit prefixes.
+  const donor = fleet.find((r) => r.jobs.some((j) => j.itemId === 'G2'))!;
+  const [job] = donor.jobs.splice(
+    donor.jobs.findIndex((j) => j.itemId === 'G2'),
+    1,
+  );
   fleet.push({
     ...donor,
     id: 'extra5',
@@ -113,7 +118,7 @@ export function createExperiment(
     jobs: [job],
     magazine: [],
     staging: { x: 0.4, y: 0.35 },
-    park: { x: 0.8, y: 0.9 },
+    park: { x: 0.8, y: 0.32 },
   });
   return createWorld(mode, fleet);
 }

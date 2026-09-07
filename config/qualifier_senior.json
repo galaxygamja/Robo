@@ -264,9 +264,9 @@
       "id": "C1",
       "kind": "cube",
       "x_mm": 900,
-      "y_mm": 210,
+      "y_mm": 65,
       "released": false,
-      "held_by": "B1"
+      "held_by": "B2"
     },
     {
       "id": "C2",
@@ -287,10 +287,10 @@
     {
       "id": "C4",
       "kind": "cube",
-      "x_mm": 900,
+      "x_mm": 1055,
       "y_mm": 65,
       "released": false,
-      "held_by": "B2"
+      "held_by": "H2"
     }
   ],
   "task_plan": [
@@ -321,7 +321,7 @@
     {
       "id": "move-C1",
       "piece_id": "C1",
-      "robot_id": "B1",
+      "robot_id": "B2",
       "destination_id": "H",
       "target_x_mm": 480,
       "target_y_mm": 1135
@@ -361,7 +361,7 @@
     {
       "id": "move-R2",
       "piece_id": "R2",
-      "robot_id": "H2",
+      "robot_id": "B2",
       "destination_id": "H",
       "target_x_mm": 550,
       "target_y_mm": 1045
@@ -377,7 +377,7 @@
     {
       "id": "move-C4",
       "piece_id": "C4",
-      "robot_id": "B2",
+      "robot_id": "H2",
       "destination_id": "PCC-R",
       "target_x_mm": 960,
       "target_y_mm": 1135
@@ -393,7 +393,7 @@
     {
       "id": "move-Y3",
       "piece_id": "Y3",
-      "robot_id": "B2",
+      "robot_id": "H2",
       "destination_id": "PCC-R",
       "target_x_mm": 960,
       "target_y_mm": 1045
