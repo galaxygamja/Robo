@@ -40,7 +40,9 @@ def _parser():
     parser.add_argument("--calibration", type=Path, required=True)
     parser.add_argument("--tags", type=Path, default=default_tag_config_path())
     parser.add_argument("--fleet", type=Path, required=True, help="mission ground_robots registry")
-    parser.add_argument("--goals", type=Path, help="reviewed field-mm goals JSON; omitted: all hold position")
+    execution = parser.add_mutually_exclusive_group()
+    execution.add_argument("--goals", type=Path, help="reviewed field-mm goals JSON; omitted: all hold position")
+    execution.add_argument("--mission", type=Path, help="reviewed qualifier task/robot-pose plan; differential dry-run")
     parser.add_argument("--colors", type=Path, help="optional HSV profile, uses existing object tracker")
     parser.add_argument("--report", type=Path, required=True, help="NEW JSONL file, never overwritten")
     parser.add_argument("--duration-s", type=_positive, default=120.0)
@@ -239,7 +241,7 @@ def main(argv=None):
             raise ValueError("Camera index must be nonnegative")
         if not 20 <= args.tick_hz <= 100:
             raise ValueError("Supervisor tick-hz must be in [20, 100]")
-        inputs = [args.calibration, args.tags, args.fleet, args.goals, args.colors, args.video]
+        inputs = [args.calibration, args.tags, args.fleet, args.goals, args.mission, args.colors, args.video]
         if args.report.resolve() in {p.resolve() for p in inputs if p is not None}:
             raise ValueError("Report must be distinct from every input")
         calibration = FieldCalibration.load(args.calibration)
@@ -253,6 +255,7 @@ def main(argv=None):
         if args.video and not args.video.is_file():
             raise ValueError("Video must be an existing local file")
         goals, radii = load_goals(args.goals, roles, calibration)
+        mission_plan = json.loads(args.mission.read_text(encoding="utf-8-sig")) if args.mission else None
         options = {"calibration": calibration.as_dict(),
                    "tags": {"dictionary_name": tags.dictionary_name, "tag_to_robot": dict(tags.tag_to_robot),
                        "heading_offsets_rad": dict(tags.heading_offsets_rad),
@@ -260,7 +263,7 @@ def main(argv=None):
                        "allowed_margin_mm": tags.allowed_margin_mm, "tag_size_mm": tags.tag_size_mm,
                        "tag_size_tolerance_fraction": tags.tag_size_tolerance_fraction,
                        "hardware_verified": tags.hardware_verified},
-                   "fleet": fleet_data, "colors": colors,
+                   "fleet": fleet_data, "colors": colors, "mission": mission_plan,
                    "video": str(args.video.resolve()) if args.video else None, "camera": args.camera}
         configuration_id = hashlib.sha256(json.dumps(options, sort_keys=True, allow_nan=False).encode()).hexdigest()
         options["configuration_id"] = configuration_id
@@ -268,7 +271,7 @@ def main(argv=None):
             source_name=f"video:{args.video.resolve()}" if args.video else f"webcam:{args.camera}",
             is_replay=args.video is not None, goals=goals, radii_mm=radii,
             recovery_frames=args.recovery_frames, track_objects=args.colors is not None,
-            configuration_id=configuration_id)
+            configuration_id=configuration_id, mission_plan=mission_plan, fleet=fleet_data)
         context = multiprocessing.get_context("spawn")
         mailbox, stop = LatestRecordMailbox(context), context.Event()
         worker_status = context.RawValue("i", 0)
@@ -277,6 +280,7 @@ def main(argv=None):
             "session_id": session.controller.session_id, "configuration_id": configuration_id,
             "calibration": calibration.as_dict(), "tags": tags.as_dict(), "roles": roles,
             "goals": session.controller.goals, "radii_mm": session.controller.radii_mm,
+            "drive_model": session.controller.drive_model, "mission_plan": mission_plan,
             "control_limits": vars(session.controller.limits), "tick_hz": args.tick_hz,
             "max_tick_gap_s": session.max_tick_gap_s, "recovery_frames": args.recovery_frames,
             "source_name": session.source_name, "is_replay": session.is_replay,
@@ -288,7 +292,7 @@ def main(argv=None):
         summary = supervise(session, worker, mailbox, stop, worker_status, report,
             duration_s=args.duration_s, tick_hz=args.tick_hz, startup_timeout_s=args.startup_timeout_s)
         print(json.dumps(summary, ensure_ascii=True, allow_nan=False))
-        successful_end = summary["status"] in {"duration_elapsed", "operator_stop", "video_eof"}
+        successful_end = summary["status"] in {"duration_elapsed", "operator_stop", "video_eof", "mission_completed"}
         return 0 if (successful_end and summary["detected_frames"] > 0 and summary["report_complete"]
                      and summary["worker_stopped"]) else 1
     except (OSError, ValueError, RuntimeError, KeyError, TypeError) as exc:

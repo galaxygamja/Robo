@@ -162,12 +162,15 @@ class ClosedLoopController:
     """A bounded proportional measured-pose controller, exclusively for mock IO."""
     def __init__(self, *, roles=None, goals=None, session_id=None, radii_mm=None,
                  limits: ControlLimits | None = None, enable_hardware=False,
-                 field_size_mm=None):
+                 field_size_mm=None, drive_model="mecanum"):
         if enable_hardware is not False:
             raise ValueError("Hardware output is not implemented and cannot be enabled")
         self.roles = validate_roles(roles)
         self.ids = tuple(self.roles)
         self.limits = limits or ControlLimits()
+        if drive_model not in {"mecanum", "differential_body"}:
+            raise ValueError("Unknown dry-run drive model")
+        self.drive_model = drive_model
         self.session_id = session_id or uuid.uuid4().hex
         if not isinstance(self.session_id, str) or not self.session_id or len(self.session_id) > 128:
             raise ValueError("A nonempty process session ID is required")
@@ -286,15 +289,35 @@ class ClosedLoopController:
                 position_done = math.hypot(dx, dy) <= limits.position_tolerance_mm
                 heading_done = abs(error) <= limits.heading_tolerance_rad
                 at_goal = position_done and heading_done
-                if not position_done:
+                if self.drive_model == "differential_body":
+                    # Rotate, translate along measured heading, then align at
+                    # the destination. No lateral velocity or guessed wheel geometry.
+                    forward = 0.0
+                    if not position_done:
+                        error = _angle(math.atan2(dy, dx) - pose["heading_rad"])
+                        if abs(error) <= limits.heading_tolerance_rad:
+                            forward = min(limits.max_speed_mm_s,
+                                          math.hypot(dx, dy) * limits.position_gain_s)
+                    omega = max(-limits.max_turn_rad_s, min(limits.max_turn_rad_s,
+                                                          error * limits.heading_gain_s))
+                    old = self.previous[rid]
+                    if forward:
+                        forward = min(forward, math.hypot(*old[:2]) + limits.acceleration_mm_s2 * dt)
+                        omega = 0.0
+                    else:
+                        omega = old[2] + max(-limits.angular_acceleration_rad_s2 * dt,
+                            min(limits.angular_acceleration_rad_s2 * dt, omega - old[2]))
+                    vx, vy = forward * math.cos(pose["heading_rad"]), forward * math.sin(pose["heading_rad"])
+                elif not position_done:
                     vx, vy = _norm_limit(dx * limits.position_gain_s, dy * limits.position_gain_s, limits.max_speed_mm_s)
-                if not heading_done:
+                if self.drive_model == "mecanum" and not heading_done:
                     omega = max(-limits.max_turn_rad_s, min(limits.max_turn_rad_s, error * limits.heading_gain_s))
-                previous = self.previous[rid]
-                ax, ay = _norm_limit(vx - previous[0], vy - previous[1], limits.acceleration_mm_s2 * dt)
-                vx, vy = previous[0] + ax, previous[1] + ay
-                omega = previous[2] + max(-limits.angular_acceleration_rad_s2 * dt,
-                                         min(limits.angular_acceleration_rad_s2 * dt, omega - previous[2]))
+                if self.drive_model == "mecanum":
+                    previous = self.previous[rid]
+                    ax, ay = _norm_limit(vx - previous[0], vy - previous[1], limits.acceleration_mm_s2 * dt)
+                    vx, vy = previous[0] + ax, previous[1] + ay
+                    omega = previous[2] + max(-limits.angular_acceleration_rad_s2 * dt,
+                                             min(limits.angular_acceleration_rad_s2 * dt, omega - previous[2]))
             proposals[rid] = (vx, vy, omega)
             reached[rid] = at_goal
         conflicts = predicted_conflicts(poses, proposals, self.radii_mm, limits) if poses else []
@@ -327,9 +350,12 @@ class ClosedLoopController:
             heading = poses[rid]["heading_rad"] if poses else 0.
             commands.append({"robot_id": rid, "velocity_world_mm_s": [vx, vy],
                              "angular_velocity_rad_s": omega, "pose_heading_rad": heading,
-                             "wheel_velocity_rad_s": mecanum_wheels(vx, vy, omega, heading, limits),
+                             "wheel_velocity_rad_s": mecanum_wheels(vx, vy, omega, heading, limits)
+                                 if self.drive_model == "mecanum" else [],
+                             "forward_velocity_mm_s": vx * math.cos(heading) + vy * math.sin(heading),
                              "at_goal": reached[rid] if poses else False})
-        return {"schema_version": 1, "session_id": self.session_id, "sequence": self.sequence,
+        return {"schema_version": 1, "drive_model": self.drive_model,
+                "session_id": self.session_id, "sequence": self.sequence,
                 "issued_at_s": now_s, "ttl_s": limits.command_ttl_s,
                 "status": "hold" if reason else "at_goal" if all(reached.values()) else "tracking_goal",
                 "stop_reason": reason, "conflicts": conflicts, "emergency_stop": self.estop_latched,
@@ -347,13 +373,16 @@ class MockActuatorBank:
     monotonic time is required; no cross-host clock synchronization is implied.
     """
     def __init__(self, robot_ids, *, session_id, watchdog_s=0.3, enable_hardware=False,
-                 limits: ControlLimits | None = None):
+                 limits: ControlLimits | None = None, drive_model="mecanum"):
         if enable_hardware is not False:
             raise ValueError("Only mock actuation exists")
         ids = tuple(robot_ids)
         if len(ids) != len(set(ids)):
             raise ValueError("Duplicate mock actuator ID")
         self.ids = tuple(validate_roles({rid: "beaver" for rid in ids}))
+        if drive_model not in {"mecanum", "differential_body"}:
+            raise ValueError("Unknown dry-run drive model")
+        self.drive_model = drive_model
         if not isinstance(session_id, str) or not session_id:
             raise ValueError("Pin the expected controller process session before receiving commands")
         if not _number(watchdog_s) or not 0 < watchdog_s <= 0.3:
@@ -370,7 +399,9 @@ class MockActuatorBank:
 
     def _zeros(self):
         return {rid: {"robot_id": rid, "velocity_world_mm_s": [0., 0.],
-                      "angular_velocity_rad_s": 0., "wheel_velocity_rad_s": [0.] * 4} for rid in self.ids}
+                      "angular_velocity_rad_s": 0., "forward_velocity_mm_s": 0.,
+                      "wheel_velocity_rad_s": [0.] * 4 if self.drive_model == "mecanum" else []}
+                for rid in self.ids}
 
     def _time(self, now_s):
         if not _number(now_s) or now_s < self.now:
@@ -403,6 +434,8 @@ class MockActuatorBank:
             return self._reject("malformed_command_envelope")
         if packet.get("session_id") != self.session_id:
             return self._reject("wrong_session")
+        if packet.get("drive_model", "mecanum") != self.drive_model:
+            return self._reject("wrong_drive_model")
         seq, issued, ttl = packet.get("sequence"), packet.get("issued_at_s"), packet.get("ttl_s")
         if type(seq) is not int or seq <= self.sequence:
             return self._reject("out_of_order_command")
@@ -428,12 +461,19 @@ class MockActuatorBank:
             velocity, omega, wheels, heading = (command.get(key) for key in
                 ("velocity_world_mm_s", "angular_velocity_rad_s", "wheel_velocity_rad_s", "pose_heading_rad"))
             if (not isinstance(velocity, (list, tuple)) or len(velocity) != 2
-                    or not isinstance(wheels, (list, tuple)) or len(wheels) != 4
+                    or not isinstance(wheels, (list, tuple))
+                    or len(wheels) != (4 if self.drive_model == "mecanum" else 0)
                     or not all(_number(v) for v in (*velocity, omega, *wheels, heading))):
                 return self._reject("malformed_command_velocity")
             if math.hypot(*velocity) > self.limits.max_speed_mm_s + 1e-8 or abs(omega) > self.limits.max_turn_rad_s + 1e-8:
                 return self._reject("command_speed_limit")
-            expected = mecanum_wheels(*velocity, omega, heading, self.limits)
+            expected = mecanum_wheels(*velocity, omega, heading, self.limits) if self.drive_model == "mecanum" else []
+            if self.drive_model == "differential_body":
+                forward = command.get("forward_velocity_mm_s")
+                if (not _number(forward) or abs(forward) > self.limits.max_speed_mm_s + 1e-8
+                        or abs(velocity[0] - forward * math.cos(heading)) > 1e-8
+                        or abs(velocity[1] - forward * math.sin(heading)) > 1e-8):
+                    return self._reject("differential_kinematics_mismatch")
             if any(abs(actual - wanted) > 1e-8 for actual, wanted in zip(wheels, expected)):
                 return self._reject("wheel_kinematics_mismatch")
             accepted[rid] = {**command, "velocity_world_mm_s": list(velocity), "wheel_velocity_rad_s": list(wheels)}
@@ -455,7 +495,8 @@ class MockActuatorBank:
         return self.snapshot()
 
     def snapshot(self):
-        return {"session_id": self.session_id, "sequence": self.sequence, "reason": self.reason,
+        return {"session_id": self.session_id, "drive_model": self.drive_model,
+                "sequence": self.sequence, "reason": self.reason,
                 "emergency_stop": self.estop_latched,
                 "robots": [{**c, "velocity_world_mm_s": list(c["velocity_world_mm_s"]),
                             "wheel_velocity_rad_s": list(c["wheel_velocity_rad_s"])} for c in self.commands.values()],

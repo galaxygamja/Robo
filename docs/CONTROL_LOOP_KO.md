@@ -1,7 +1,13 @@
 # 측정 좌표 폐루프와 독립 명령 watchdog: 모의 출력 전용
 
+> 후속: `drive_model="differential_body"`를 추가했으며 `runtime --mission`이 사용한다.
+> [차동 임무 실행 안내](MISSION_ROUTE_RUNTIME_KO.md). 기본값과 아래 기존 데모는 메카넘이다.
+
 > 2026-09-07: 실제 카메라/영상 입력 연결은 [runtime 안내](REAL_CAMERA_RUNTIME_KO.md)를 따른다.
 > 아래 `--demo`의 이상적 모의 위치 갱신과 달리 runtime은 영상 검출 위치만 사용한다.
+
+> 2026-09-07 장치 합의는 [2륜 차동구동](DEVICE_COMMAND_SPEC_KO.md)이다. 이 문서가 설명하는
+> 메카넘 제어 코어는 아직 수정 전인 검증용 구현이다. 엔코더도 미장착 예상이며 확정 전이다.
 
 `robo_control/control_loop.py`는 매번 새로 측정된 위치와 명시 목표 사이의 오차를 계산하고, 제한된 속도와 메카넘 휠 속도 **모의 명령**을 만든다. 하드웨어 연결, 모터 극성 결정, 실제 주행, 서보 제어, 드론 제어를 구현한 모듈은 아니다. `enable_hardware=True`는 예외로 거부한다. GPIO·serial·radio·UDP 전송을 만들지 않는다.
 

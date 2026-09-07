@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "document_role": "device_decisions_not_executable_runtime_config",
+  "agreement_status": "partial",
+  "updated_on": "2026-09-07",
+  "robot_ids": ["H1", "H2", "B1", "B2"],
+  "drivetrain": {
+    "type": "differential_drive",
+    "powered_wheel_count": 2,
+    "lateral_translation_supported": false,
+    "decision_status": "confirmed_by_user",
+    "wheel_radius_mm": null,
+    "wheel_separation_mm": null
+  },
+  "encoders": {
+    "installed": null,
+    "planning_assumption": "absent",
+    "decision_status": "likely_absent_not_confirmed"
+  },
+  "hardware": {
+    "controller_board_model": null,
+    "motor_model": null,
+    "motor_driver_model": null,
+    "supply_voltage_v": null,
+    "manipulator_actuators": null,
+    "feedback_sensors": null,
+    "physical_emergency_stop_method": null
+  },
+  "command_proposal": {
+    "status": "draft_not_wire_protocol",
+    "drive_frame": "robot_body_x_forward_y_left",
+    "forward_velocity_unit": "mm/s",
+    "angular_velocity_unit": "rad/s",
+    "positive_rotation": "counterclockwise",
+    "lateral_velocity_field_allowed": false,
+    "transport": null
+  },
+  "software_status": {
+    "differential_runtime_implemented": true,
+    "differential_runtime_scope": "runtime --mission; dry-run body velocity only, no wheel/PWM or transport",
+    "legacy_controller_assumption": "four_wheel_mecanum_mock",
+    "hardware_verified": false,
+    "motion_permitted": false
+  }
+}

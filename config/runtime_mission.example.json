@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "coordinate_system": "bottom_left_x_right_y_up_mm",
+  "radii_mm": {"H1": null, "H2": null, "B1": null, "B2": null},
+  "cell_mm": 40,
+  "obstacles_mm": [],
+  "tasks": [
+    {
+      "task_id": "move-D1",
+      "pickup": {"x_mm": null, "y_mm": null, "heading_rad": null},
+      "drop": {"x_mm": null, "y_mm": null, "heading_rad": null},
+      "retreat": {"x_mm": null, "y_mm": null, "heading_rad": null}
+    }
+  ]
+}

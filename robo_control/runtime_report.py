@@ -39,6 +39,7 @@ def inspect_report(path: str | Path) -> dict:
     statuses = Counter()
     worst_gap_s = worst_age_ms = age_total_ms = 0.0
     last = None
+    drive_model = "mecanum"
     with Path(path).open("r", encoding="utf-8-sig") as handle:
         line_number = 0
         while True:
@@ -66,6 +67,9 @@ def inspect_report(path: str | Path) -> dict:
                         or row.get("output_mode") != "dry_run_commands"):
                     raise ValueError("Report must begin with a valid session_started configuration")
                 session, registry, mode = row["session_id"], set(roles), row["input_mode"]
+                drive_model = row.get("drive_model", "mecanum")
+                if drive_model not in {"mecanum", "differential_body"}:
+                    raise ValueError("Unknown drive model")
                 continue
             if (row.get("event") != "runtime_tick" or row.get("session_id") != session
                     or row.get("input_mode") != mode or row.get("output_mode") != "dry_run_commands"):
@@ -93,6 +97,8 @@ def inspect_report(path: str | Path) -> dict:
                            for key in ("device_io", "hardware_ready", "motion_permitted"))):
                 raise ValueError(f"Invalid dry-run actuator envelope on line {line_number}")
             robots = actuator.get("robots")
+            if actuator.get("drive_model", "mecanum") != drive_model:
+                raise ValueError("Mixed actuator drive model")
             if (not isinstance(robots, list) or any(not isinstance(robot, dict) for robot in robots)
                     or any(not isinstance(robot.get("robot_id"), str) for robot in robots)
                     or len(robots) != len(registry) or {robot["robot_id"] for robot in robots} != registry):
@@ -101,9 +107,13 @@ def inspect_report(path: str | Path) -> dict:
                 velocity, omega, wheels = (robot.get(key) for key in
                     ("velocity_world_mm_s", "angular_velocity_rad_s", "wheel_velocity_rad_s"))
                 if (not isinstance(velocity, list) or len(velocity) != 2
-                        or not isinstance(wheels, list) or len(wheels) != 4
+                        or not isinstance(wheels, list) or len(wheels) != (4 if drive_model == "mecanum" else 0)
                         or not all(_number(v) for v in (*velocity, omega, *wheels))):
                     raise ValueError(f"Invalid command values on line {line_number}")
+                if drive_model == "differential_body":
+                    forward = robot.get("forward_velocity_mm_s")
+                    if not _number(forward) or (status == "closed" and forward != 0):
+                        raise ValueError("Invalid differential body command")
                 if status == "closed" and any(v != 0 for v in (*velocity, omega, *wheels)):
                     raise ValueError("Closed session contains nonzero dry-run output")
             observation = row.get("observation")
@@ -123,6 +133,7 @@ def inspect_report(path: str | Path) -> dict:
     if last is None or last.get("status") != "closed":
         raise ValueError("Report has no final closed/zero-output record")
     return {"session_id": session, "input_mode": mode, "output_mode": "dry_run_commands",
+            "drive_model": drive_model, "mission": last.get("mission"),
             "log_complete": True, "final_stop_recorded": True, "closed_reason": last["closed_reason"],
             "elapsed_s": previous_at - first_at, "supervisor_ticks": tick_count,
             "max_tick_gap_ms": worst_gap_s * 1000, "observation_frames": frames,

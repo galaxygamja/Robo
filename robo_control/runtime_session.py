@@ -10,9 +10,11 @@ import math
 from copy import deepcopy
 
 from .control_loop import ClosedLoopController, ControlLimits, MockActuatorBank
+from .mission_runtime import MissionExecutor
 from .vision.calibration import COORDINATE_SYSTEM
 from .vision.object_tracking import ObjectTracker
 from .vision.tracking import PoseTracker
+from .world_state import ObservationWorldAdapter, PieceSpec
 
 
 def _finite(value):
@@ -33,7 +35,8 @@ class LiveControlSession:
 
     def __init__(self, *, roles, field_size_mm, source_name, is_replay=False,
                  goals=None, radii_mm=None, recovery_frames=3, max_tick_gap_s=0.1,
-                 limits=None, track_objects=False, session_id=None, configuration_id=None):
+                 limits=None, track_objects=False, session_id=None, configuration_id=None,
+                 mission_plan=None, fleet=None):
         if not isinstance(source_name, str) or not source_name:
             raise ValueError("Pin a nonempty expected camera source name")
         if type(is_replay) is not bool or type(track_objects) is not bool:
@@ -47,10 +50,23 @@ class LiveControlSession:
         limits = limits or ControlLimits()
         if limits.max_pose_age_s > 0.2:
             raise ValueError("Live runtime accepts observations for at most 200 ms")
-        self.controller = ClosedLoopController(roles=roles, goals=goals, radii_mm=radii_mm,
-            limits=limits, field_size_mm=field_size_mm, session_id=session_id)
+        if mission_plan is not None and (goals or radii_mm is not None):
+            raise ValueError("Mission plan and explicit goals/radii are mutually exclusive")
+        self.mission = (MissionExecutor(mission_plan, fleet, roles=roles,
+            field_size_mm=field_size_mm, limits=limits) if mission_plan is not None else None)
+        drive_model = "differential_body" if self.mission else "mecanum"
+        self.controller = ClosedLoopController(roles=roles, goals=goals,
+            radii_mm=self.mission.radii if self.mission else radii_mm,
+            limits=limits, field_size_mm=field_size_mm, session_id=session_id, drive_model=drive_model)
         self.bank = MockActuatorBank(self.controller.ids, session_id=self.controller.session_id,
-                                    watchdog_s=limits.command_ttl_s, limits=limits)
+                                    watchdog_s=limits.command_ttl_s, limits=limits, drive_model=drive_model)
+        if self.mission:
+            self.mission.session_id = self.controller.session_id
+        self.world_adapter = (ObservationWorldAdapter(roles=roles,
+            pieces=[PieceSpec.from_piece(p) for p in self.mission.inventory.values()],
+            source_name=source_name, session_id=self.controller.session_id,
+            field_size_mm=field_size_mm, is_replay=is_replay, configuration_id=configuration_id,
+            max_age_s=limits.max_pose_age_s, recovery_frames=max(3, recovery_frames)) if self.mission else None)
         self.tracker = PoseTracker(self.controller.ids)
         self.object_tracker = ObjectTracker(self.controller.ids, max_frame_age_s=limits.max_pose_age_s) if track_objects else None
         self.configuration_id = configuration_id
@@ -101,6 +117,8 @@ class LiveControlSession:
 
     def _hold(self, now_s, reason, record=None):
         self.fresh_streak = 0
+        if self.mission:
+            self.mission.interrupt(reason)
         self.controller.set_paused(True)
         packet = self.controller.tick(record, now_s)
         packet["stop_reason"] = reason
@@ -109,6 +127,8 @@ class LiveControlSession:
         return packet
 
     def _event(self, now_s, *, command=None, observation=None):
+        if self.world_adapter:
+            self.mission.world = self.world_adapter.poll(now_s).as_dict()
         return {"schema_version": 1, "event": "runtime_tick",
                 "session_id": self.controller.session_id, "tick_sequence": self.tick_sequence,
                 "at_s": now_s, "status": self.status, "closed_reason": self.closed_reason,
@@ -117,12 +137,13 @@ class LiveControlSession:
                     max(0.0, (now_s - self.last_capture_s) * 1000),
                 "observation": deepcopy(observation), "command": deepcopy(command),
                 "object_tracking": self.object_tracker.poll(now_s) if self.object_tracker else None,
+                "mission": self.mission.snapshot() if self.mission else None,
                 "actuator": self.bank.snapshot(), "is_replay": self.is_replay,
                 "input_mode": "video_replay" if self.is_replay else "live_camera",
                 "output_mode": "dry_run_commands",
                 "device_io": False, "hardware_ready": False, "motion_permitted": False}
 
-    def advance(self, record, now_s):
+    def advance(self, record, now_s, *, feedback=None):
         if not _finite(now_s) or now_s < 0 or (self.now is not None and now_s < self.now):
             self.close(self.now or 0.0, "invalid_runtime_clock")
             raise ValueError("Runtime clock must be finite, nonnegative and monotonic")
@@ -133,6 +154,10 @@ class LiveControlSession:
             return self._event(now_s)
         if previous_tick is not None and now_s - previous_tick > self.max_tick_gap_s + 1e-9:
             return self.close(now_s, "supervisor_deadline_missed")
+        if self.mission:
+            self.mission.poll(now_s)
+            if self.mission.fault:
+                return self.close(now_s, self.mission.fault)
         if isinstance(record, dict) and record.get("status") == "source_closed":
             return self.close(now_s, "source_closed")
         # Expiry resets recovery even if a new valid record arrives this tick.
@@ -140,6 +165,8 @@ class LiveControlSession:
                    and now_s >= self.last_capture_s + self.controller.limits.max_pose_age_s)
         if expired:
             self.fresh_streak = 0
+            if self.mission:
+                self.mission.interrupt("observation_watchdog")
         if record is None:
             if expired and self.status != "observation_watchdog":
                 packet = self._hold(now_s, "observation_watchdog")
@@ -150,6 +177,8 @@ class LiveControlSession:
         record = deepcopy(record)
         rejection = self._input_reason(record)
         if rejection is not None:
+            if self.world_adapter:
+                self.world_adapter.update(record, now_s, source_session_id=self.controller.session_id)
             packet = self._hold(now_s, rejection)
             if self.object_tracker is not None:
                 # A known-bad frame is not an ordinary between-frame poll.
@@ -161,21 +190,39 @@ class LiveControlSession:
         record.update(tracking)
         if self.object_tracker is not None:
             record.update(self.object_tracker.update(record, now_s))
+        world = (self.world_adapter.update(record, now_s, source_session_id=self.controller.session_id)
+                 if self.world_adapter else None)
         stamp = record.get("captured_at_s")
         fresh = (_finite(stamp) and 0 <= now_s - stamp < self.controller.limits.max_pose_age_s)
-        if tracking["observation_usable"] is not True or not fresh:
+        if (tracking["observation_usable"] is not True or not fresh
+                or (world is not None and not world.ready and world.status != "confirming")):
             reason = tracking["tracking_frame_reason"] or record.get("reason") or "localization_incomplete"
+            if world is not None and not world.ready:
+                reason = "mission_world:" + ",".join(world.reasons)
             if not fresh:
                 reason = "stale_observation"
             packet = self._hold(now_s, reason, record)
         else:
             self.last_capture_s = stamp
             self.fresh_streak = min(self.recovery_frames, self.fresh_streak + 1)
-            self.controller.set_paused(self.fresh_streak < self.recovery_frames)
+            ready = self.fresh_streak >= self.recovery_frames and (world is None or world.ready)
+            self.controller.set_paused(not ready)
+            if self.mission and ready:
+                self.controller.set_goals(self.mission.prepare(record, now_s, feedback, world=world))
+                if self.mission.fault:
+                    return self.close(now_s, self.mission.fault)
             packet = self.controller.tick(record, now_s)
-            if self.fresh_streak < self.recovery_frames:
+            if not ready:
                 packet["stop_reason"] = "confirming_observation"
+            if self.mission and ready:
+                self.mission.guard_command(packet, record)
+                if self.mission.fault:
+                    return self.close(now_s, self.mission.fault)
             self.bank.receive(packet, now_s)
+            if self.mission and ready and self.bank.reason == "mock_active":
+                self.mission.accept_arrival(packet, record, now_s)
+                if self.mission.done:
+                    return self.close(now_s, "mission_completed")
             self.command = packet
             self.status = packet["stop_reason"] or packet["status"]
         return self._event(now_s, command=deepcopy(packet), observation=record)
@@ -190,6 +237,9 @@ class LiveControlSession:
             # the local stop latch during shutdown.
             self.controller.emergency_stop()
             self.bank.emergency_stop()
+            if self.mission:
+                self.mission.close()
+                self.world_adapter.close(now_s)
             self.tracker.close(now_s)
             if self.object_tracker is not None:
                 self.object_tracker.close(now_s)
