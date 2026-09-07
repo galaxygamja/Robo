@@ -1,0 +1,275 @@
+{
+  "version": "beaver-v0.6-physical",
+  "result": "PROTOTYPE_READY_CONDITIONAL",
+  "source_sha256": "04bcdf61368dceb88066c49c5a6909e784592ba0e47788bd993b5eb406aebd51",
+  "changes": {
+    "anti_tip_skids": {
+      "quantity": 4,
+      "centres_xy_mm": [
+        [
+          -43.5,
+          -43
+        ],
+        [
+          43.5,
+          -43
+        ],
+        [
+          -43.5,
+          16
+        ],
+        [
+          43.5,
+          16
+        ]
+      ],
+      "contact_z_mm": 0.0,
+      "size_each_mm": [
+        5,
+        8,
+        1.6
+      ]
+    },
+    "wheel_contact_plane_z_mm": 0.0,
+    "wheel_arch_radial_clearance_mm": 2.2,
+    "m25_link_hole_diameter_mm": 2.9,
+    "crank_slot_width_mm": 3.3,
+    "cargo_slope_deg": 7.125,
+    "cargo_gravity_static_friction_threshold": 0.125,
+    "kick_cam_forward_mm": 8,
+    "housing_servo_roof_clearance_mm": 3.0,
+    "housing_cargo_cut_clearance_mm": 1.5,
+    "housing_boss_outer_diameter_mm": 6.5,
+    "housing_boss_axis_z_mm": 38.0
+  },
+  "cargo_fit": {
+    "two_box_rear_clearance_mm": 0.6351,
+    "front_clearance_mm": 1.5965,
+    "stack_top_clearance_mm": 4.0085,
+    "full_stack_release_only": true
+  },
+  "stability": {
+    "printed_structure_centroid_mm": [
+      1.2247,
+      -11.6874,
+      34.2962
+    ],
+    "support_polygon_xy_mm": [
+      [
+        -43.5,
+        -43
+      ],
+      [
+        43.5,
+        -43
+      ],
+      [
+        43.5,
+        16
+      ],
+      [
+        -43.5,
+        16
+      ]
+    ],
+    "empty_centroid_inside_support_polygon": true,
+    "assumed_two_box_payload_g": 200.0,
+    "loaded_centroid_estimate_mm": [
+      0,
+      -24.2468,
+      57.2182
+    ],
+    "loaded_centroid_inside_support_polygon": true,
+    "loaded_rear_tip_angle_deg": 18.15
+  },
+  "checks": {
+    "all_print_stls_watertight_single_component_on_bed": true,
+    "housing_close_0deg_empty_intersection": true,
+    "housing_close_60deg_empty_intersection": true,
+    "housing_open_105deg_empty_intersection": true,
+    "wheel_to_chassis_empty_intersection": true,
+    "patient_to_open_and_closed_jaws_empty_intersection": true,
+    "patient_to_skids_empty_intersection": true,
+    "boxes_to_magazine_only_zero_volume_floor_contact": true,
+    "protected_front_gripper_geometry_preserved": true
+  },
+  "protected_front_gripper_parameters": {
+    "patient_diameter": true,
+    "patient_height": true,
+    "radial_clearance": true,
+    "patient_center": true,
+    "jaw_inner_radius": true,
+    "jaw_outer_radius": true,
+    "jaw_arc_start": true,
+    "jaw_arc_end": true,
+    "jaw_pivot": true,
+    "jaw_open_angle": true,
+    "jaw_close_angle": true,
+    "jaw_tip_rounding_r": true,
+    "jaw_lever_vector": true,
+    "link_length": true,
+    "yoke_link_x": true,
+    "collar_outer_radius": true,
+    "collar_start_angle": true,
+    "collar_end_angle": true
+  },
+  "closed_envelope_mm": [
+    97.0,
+    99.2875,
+    94.0
+  ],
+  "gate_open_y_envelope_mm": 144.92,
+  "printable_stls": [
+    {
+      "file": "01_integrated_chassis_STABILITY_SKIDS.stl",
+      "size_mm": [
+        97.0,
+        69.5,
+        40.5
+      ],
+      "volume_mm3_each": 31279.425,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "d4ac3798499322c4eb2933e1aec5cd28bc41571f18b9002d2f9103e8b714e172",
+      "quantity": 1
+    },
+    {
+      "file": "02_jaw_left_M25_CLEARANCE.stl",
+      "size_mm": [
+        32.3471,
+        37.3111,
+        23.0
+      ],
+      "volume_mm3_each": 4675.696,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "0df7922850a80abc4f890d82e3ab56f36d5f2f432d17bd4791945564fb9fa4d9",
+      "quantity": 1
+    },
+    {
+      "file": "03_jaw_right_M25_CLEARANCE.stl",
+      "size_mm": [
+        32.3471,
+        37.3111,
+        23.0
+      ],
+      "volume_mm3_each": 4675.696,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "f820e11622ffbfff4e810f6238384520ccdd72d280647e2f53353bb552627fde",
+      "quantity": 1
+    },
+    {
+      "file": "04_slider_yoke_M25_CLEARANCE.stl",
+      "size_mm": [
+        49.0,
+        5.0,
+        2.5
+      ],
+      "volume_mm3_each": 518.288,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "613efdfdbc339561776e0879b8c6d6740d806fa1412d5d2a43af79c17e30e6b8",
+      "quantity": 1
+    },
+    {
+      "file": "05_link_x2_M25_CLEARANCE.stl",
+      "size_mm": [
+        13.0,
+        5.0,
+        2.5
+      ],
+      "volume_mm3_each": 116.036,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "17aee08cd81490e3623f3014158e81393589ebf74671882c5977fe8247f12162",
+      "quantity": 2
+    },
+    {
+      "file": "06_front_servo_mount.stl",
+      "size_mm": [
+        47.5,
+        16.0,
+        45.5
+      ],
+      "volume_mm3_each": 6800.076,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "4eaa8a1b9ff0cce30ffaf068e2f2069296fbe1e56e7660acfcce7f4a6007cf73",
+      "quantity": 1
+    },
+    {
+      "file": "07_cargo_magazine_STEEPER.stl",
+      "size_mm": [
+        77.4,
+        38.7,
+        53.5
+      ],
+      "volume_mm3_each": 20351.846,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "506e88de643a6f00f3e7deb4d8dbfa5238a9a19fb5148b78bdf18afa4222bd3d",
+      "quantity": 1
+    },
+    {
+      "file": "08_rear_dump_gate_STRONG_KICK_CAM.stl",
+      "size_mm": [
+        31.6,
+        56.5,
+        13.0312
+      ],
+      "volume_mm3_each": 5441.878,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "452767ae2b2940e3cdba47732bfb49330b98b2561b6c411bbb5ff40d8b347eea",
+      "quantity": 1
+    },
+    {
+      "file": "09_dump_servo_mount.stl",
+      "size_mm": [
+        18.7,
+        24.6,
+        32.0
+      ],
+      "volume_mm3_each": 2827.979,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "0955a7da8bde9e8d00566e9d7282bc2d6dba230eba0b13ea6eef2d34e93a6d5b",
+      "quantity": 1
+    },
+    {
+      "file": "10_removable_upper_housing_STRONG_BOSSES.stl",
+      "size_mm": [
+        79.0,
+        42.4724,
+        20.0
+      ],
+      "volume_mm3_each": 3253.793,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": -0.0,
+      "sha256": "034016bdb5ef05daefd911c51635df287c1b8d3f27d54dd9a97c94536c707188",
+      "quantity": 1
+    }
+  ],
+  "printed_part_types": 10,
+  "printed_piece_count": 11,
+  "approx_printed_volume_mm3": 80056.75,
+  "approx_PLA_mass_g_at_1_24g_cm3": 99.27,
+  "remaining_real_tests": [
+    "Apply low-friction PTFE/UHMW tape to the skid faces and verify loaded turning current.",
+    "Confirm the actual Hamster core motor, wheel, battery and controller geometry; they remain reference envelopes.",
+    "Run at least 20 loaded gate cycles because gravity-only release is not guaranteed at a friction coefficient above 0.125.",
+    "Tune the kick cam and servo endpoints after measuring the actual boxes and servo horn.",
+    "Replace the mecanum simulation command mapping with calibrated two-wheel differential drive before powered autonomous testing."
+  ]
+}
