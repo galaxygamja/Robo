@@ -22,7 +22,7 @@ jobs:
         run: python -m pip install -e ".[vision]"
       - name: Verify vision dependencies are available
         run: python -c "import cv2, numpy; print(cv2.__version__, numpy.__version__)"
-      - name: Camera, calibration, CLI and regression tests
+      - name: Camera, calibration, process-isolated runtime and regression tests
         run: python -m unittest discover -s tests -v
 
   web-physics:
@@ -79,6 +79,8 @@ jobs:
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.qualifier --compact > "$RUNNER_TEMP/wheel-qualifier.json"
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.control_loop --demo --robots 5 --compact
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.active_observer --demo --compact
+          "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.runtime --help
+          "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.runtime_report --help
       - name: Install and smoke-test sdist outside checkout
         run: |
           python -m venv "$RUNNER_TEMP/sdist-env"
@@ -89,6 +91,8 @@ jobs:
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.qualifier --compact > "$RUNNER_TEMP/sdist-qualifier.json"
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.control_loop --demo --robots 5 --compact
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.active_observer --demo --compact
+          "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.runtime --help
+          "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.runtime_report --help
 
   windows-launcher-smoke:
     runs-on: windows-latest

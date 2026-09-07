@@ -200,6 +200,24 @@ class VideoFileSourceTests(unittest.TestCase):
     # neither a video codec nor permission to create temporary directories.
     existing_file = Path(__file__).resolve()
 
+    def test_nominal_file_frame_count_is_only_a_valid_positive_integer_hint(self):
+        for value in (100., 0., -1., 3.5, float("inf"), 1e10, None, CaptureError("unsupported")):
+            capture = FakeCapture(media_positions=[value])
+            cv2 = fake_cv2(capture)
+            cv2.CAP_PROP_FRAME_COUNT = 7
+            with self.subTest(value=value), patch.dict("sys.modules", {"cv2": cv2}), VideoFileSource(self.existing_file) as source:
+                self.assertEqual(100 if value == 100. else None, source.nominal_frame_count)
+                self.assertEqual(0, capture.read_count)
+
+    def test_nominal_file_fps_is_validated_without_changing_unpaced_read_contract(self):
+        for value in (30., 0., -1., float("nan"), float("inf"), 1001., None, "unknown", CaptureError("unsupported")):
+            capture = FakeCapture(media_positions=[value])
+            cv2 = fake_cv2(capture)
+            cv2.CAP_PROP_FPS = 5
+            with self.subTest(value=value), patch.dict("sys.modules", {"cv2": cv2}), VideoFileSource(self.existing_file) as source:
+                self.assertEqual(30. if value == 30. else None, source.nominal_fps)
+                self.assertEqual(0, capture.read_count)
+
     def test_video_uses_absolute_local_path_and_separate_media_clock(self) -> None:
         image = object()
         capture = FakeCapture([(True, image)], media_positions=[1250.0])

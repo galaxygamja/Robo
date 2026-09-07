@@ -1,5 +1,29 @@
 # Robo Control Lab 상세 테스트 계획
 
+## 2026-09-07 실제 카메라 runtime 추가 시험
+
+아래 9월 5일 기준선/미구현 표는 과거 상태다. 최신 구현 구분은
+[작업 기록](REAL_RUNTIME_WORK_KO.md)과 [실행 안내](REAL_CAMERA_RUNTIME_KO.md)를 우선한다.
+
+| 시험 파일/도구 | 자동화 범위 |
+|---|---|
+| `test_runtime_session.py` | 3프레임 확인, 200ms 관측 만료, TTL 재발행 금지, 누락/잘못된 출처/순서, 세션 종료 잠금, 물체 poll, 4개 외벽 |
+| `test_runtime_io.py` | 최신값 교체, 생산자 잠금 유실, 크기 제한, 비동기 기록 포화/쓰기 실패, 기존 파일 보호 |
+| `test_runtime_process.py` | 실제 spawn 프로세스 죽음/읽기 멈춤/강제 종료/늦은 결과, 실제 파일 디코딩→4대 검출→추적→속도 기록 |
+| `test_runtime_supervision.py` | 중앙 계산 지연/관측 만료/기록 오류/예외 시 0, 단일 최종 행, EOF 실패 구분 |
+| `test_runtime_report.py` | 호스트 지연 집계, 잘린 로그/시간 역행/세션 혼합/최종 비영점/비정상 수치 거부 |
+| `tools/verify_camera_runtime.py` | 생성 태그 영상 120/600초 재생, 반복 가림/재확인, 비영점 출력 신선도와 영상 측정값 유지 전 행 검사 |
+
+모든 출력은 메모리/로그 전용이다. 생성 영상·프로세스 시험 통과는 현장 카메라
+노출/버퍼 지연, 실제 위치 정확도, 모터 정지 성능, 대회 규정 합격을 증명하지 않는다.
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe tools/verify_camera_runtime.py --output-dir recordings/runtime-check-001 --seconds 120
+```
+
+## 2026-09-05 기준 상세 계획 (보존)
+
 > 대상: 현재 저장소의 `robo_control` 패키지, 6대 로봇 시뮬레이터와 4대 실물 로봇용 비전 입력 계층
 > 기준 설정: `config/default.json`, `config/robot_tags.json`과 현장별로 생성하는 보정 JSON
 > 테스트 프레임워크: Python 표준 라이브러리 `unittest`
