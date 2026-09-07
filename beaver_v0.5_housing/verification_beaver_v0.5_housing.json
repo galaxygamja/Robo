@@ -1,0 +1,259 @@
+{
+  "design": "Beaver Robot v0.5-removable-rounded-upper-housing",
+  "result": "PASS_CONDITIONAL",
+  "physical_conclusion": "Printed geometry, open/closed mechanism intersections and nominal clearances pass. Confirm the real servo connector and wire-bend envelopes before final assembly.",
+  "housing": {
+    "style": "Lightweight rounded-cube upper cap with open lower, front, cargo-top and rear regions",
+    "nominal_installed_size_including_bosses_mm": [
+      79.0,
+      43.0,
+      18.0
+    ],
+    "actual_stl_size_mm": [
+      79.0,
+      42.4724,
+      18.0
+    ],
+    "installed_bounds_nominal_mm": {
+      "x": [
+        -39.5,
+        39.5
+      ],
+      "y": [
+        -40.0,
+        3.0
+      ],
+      "z": [
+        34.7,
+        52.7
+      ]
+    },
+    "wall_mm": 2.0,
+    "mounting": "Four side-access M3 screws through D3.4 chassis holes into D2.8 housing pilots",
+    "mount_locations_each_side_yz_mm": [
+      [
+        -33.0,
+        37.3
+      ],
+      [
+        -2.0,
+        37.3
+      ]
+    ],
+    "volume_mm3": 3063.28,
+    "approx_PLA_mass_g_at_1_24g_cm3": 3.8
+  },
+  "robot_envelopes_mm": {
+    "closed_all_mechanisms": [
+      97.0,
+      99.2875,
+      90.5
+    ],
+    "rear_gate_fully_open": [
+      97.0,
+      141.5405,
+      90.5
+    ]
+  },
+  "clearances_mm": {
+    "wheel_inner_face_to_housing_side_mm": 2.0,
+    "minimum_wheel_to_mount_boss_mm": 2.682,
+    "hamster_core_top_to_housing_lower_edge_mm": 0.5,
+    "front_servo_mount_to_inner_roof_mm": 1.0,
+    "front_servo_mount_to_inner_side_each_mm": 8.5,
+    "patient_rear_tangent_to_housing_front_mm": 4.0,
+    "cargo_deck_to_housing_cut_mm": 0.8,
+    "cargo_front_lobe_to_opening_edge_mm": 1.3,
+    "closed_gate_to_housing_rear_nominal_mm": 6.0,
+    "housing_boss_to_chassis_inner_face_screw_gap_mm": 0.5
+  },
+  "tests": {
+    "housing_watertight_single_component": true,
+    "modified_chassis_watertight_single_component": true,
+    "all_legacy_printed_parts_byte_identical_to_v0_4": true,
+    "housing_vs_close_mechanisms_empty_cgal_intersection": true,
+    "housing_vs_open_gripper_and_open_gate_empty_cgal_intersection": true,
+    "wheel_running_clearance": true,
+    "hamster_core_keepout_clearance": true,
+    "cargo_top_and_rear_path_open": true,
+    "front_patient_and_jaw_region_open": true,
+    "wall_suitable_for_0_4mm_nozzle": true
+  },
+  "unchanged_parts": {
+    "02_jaw_left_UNCHANGED.stl": true,
+    "03_jaw_right_UNCHANGED.stl": true,
+    "04_slider_yoke_UNCHANGED.stl": true,
+    "05_link_x2_UNCHANGED.stl": true,
+    "06_front_servo_mount_UNCHANGED.stl": true,
+    "07_cargo_magazine_UNCHANGED.stl": true,
+    "08_rear_dump_gate_KICK_CAM_UNCHANGED.stl": true,
+    "09_dump_servo_mount_UNCHANGED.stl": true
+  },
+  "reference_sizes_mm": {
+    "box": [
+      25.0,
+      25.0,
+      20.0
+    ],
+    "patient": [
+      30.0,
+      30.0,
+      20.0
+    ],
+    "wheel": [
+      34.0,
+      34.0,
+      9.0
+    ]
+  },
+  "printable_stls": [
+    {
+      "file": "01_integrated_hamster_chassis_HOUSING_MOUNTS.stl",
+      "quantity": 1,
+      "size_mm": [
+        97.0,
+        69.5,
+        39.3
+      ],
+      "volume_mm3_each": 31928.335,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": -3e-06,
+      "sha256": "b0a2f6156d4804720797f45dff2f912258dcd8bc29e39309298278341ac92d28"
+    },
+    {
+      "file": "02_jaw_left_UNCHANGED.stl",
+      "quantity": 1,
+      "size_mm": [
+        32.3471,
+        37.3111,
+        23.0
+      ],
+      "volume_mm3_each": 4705.454,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "def3d2730a92cb6ce7df688f0fc4688372d91a7e71526c9e11964368bd5f446a"
+    },
+    {
+      "file": "03_jaw_right_UNCHANGED.stl",
+      "quantity": 1,
+      "size_mm": [
+        32.3471,
+        37.3111,
+        23.0
+      ],
+      "volume_mm3_each": 4705.454,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "37d7f128b7246cfe2c427acf528b5b89709d26816d6299d06103eb77c9d37619"
+    },
+    {
+      "file": "04_slider_yoke_UNCHANGED.stl",
+      "quantity": 1,
+      "size_mm": [
+        49.0,
+        5.0,
+        2.5
+      ],
+      "volume_mm3_each": 532.819,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "bbc2d2ba832fb02e207fd4a2c1b7c1b1f77cbcbbd2d3d240613a3a33fdbd64a8"
+    },
+    {
+      "file": "05_link_x2_UNCHANGED.stl",
+      "quantity": 2,
+      "size_mm": [
+        13.0,
+        5.0,
+        2.5
+      ],
+      "volume_mm3_each": 122.505,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "296e281e11549e5d3d36f490ebf2667dfa49afa4931e61237e69dbdc90b3b555"
+    },
+    {
+      "file": "06_front_servo_mount_UNCHANGED.stl",
+      "quantity": 1,
+      "size_mm": [
+        47.5,
+        16.0,
+        45.5
+      ],
+      "volume_mm3_each": 6800.076,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "b0fe9a9392555dfea38b61c163e25237dc805dbc1b206fd09d75ed163c27c764"
+    },
+    {
+      "file": "07_cargo_magazine_UNCHANGED.stl",
+      "quantity": 1,
+      "size_mm": [
+        77.4,
+        38.7,
+        50.0
+      ],
+      "volume_mm3_each": 19141.971,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "7c0066186d1f19958b98dbe5db5117f153f4ec0d13bba0cda18b81ad7e279e6c"
+    },
+    {
+      "file": "08_rear_dump_gate_KICK_CAM_UNCHANGED.stl",
+      "quantity": 1,
+      "size_mm": [
+        31.6,
+        53.0,
+        10.7539
+      ],
+      "volume_mm3_each": 4959.39,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "09fad8d6f80b9e302d08af313a0105d56758c3210daa74b3b671e2869f03d9b1"
+    },
+    {
+      "file": "09_dump_servo_mount_UNCHANGED.stl",
+      "quantity": 1,
+      "size_mm": [
+        18.7,
+        24.6,
+        32.0
+      ],
+      "volume_mm3_each": 2827.979,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "f18832d5915ace5a1c76fb9031983d20eede300e532c1f84b88fc9801c0e2109"
+    },
+    {
+      "file": "10_removable_upper_housing.stl",
+      "quantity": 1,
+      "size_mm": [
+        79.0,
+        42.4724,
+        18.0
+      ],
+      "volume_mm3_each": 3063.28,
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": -0.0,
+      "sha256": "1fd696827e8bfbeef4c231bdb86f539d9fc963526f1bda2baef606aaf28007b0"
+    }
+  ],
+  "printed_part_instances": 11,
+  "approx_total_printed_volume_mm3": 78909.77,
+  "approx_total_PLA_mass_g_at_1_24g_cm3": 97.85,
+  "remaining_real_tests": [
+    "Confirm the actual front servo body, plug and wire bend fit under the 1.0 mm nominal roof allowance.",
+    "Turn both wheels by hand after tightening all four housing screws.",
+    "Cycle the gripper and rear gate 20 times with the housing installed."
+  ]
+}
