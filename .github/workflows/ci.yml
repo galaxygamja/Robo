@@ -86,6 +86,8 @@ jobs:
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.active_observer --demo --compact
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.wire_lab --compact
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.manipulator_lab --compact
+          "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.operation_journal --help
+          "$RUNNER_TEMP/wheel-env/bin/python" -c "from robo_control.journal_sender import JournaledManipulatorSender"
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.runtime --help
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.runtime_report --help
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.binding_tools --help
@@ -103,6 +105,8 @@ jobs:
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.active_observer --demo --compact
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.wire_lab --compact
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.manipulator_lab --compact
+          "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.operation_journal --help
+          "$RUNNER_TEMP/sdist-env/bin/python" -c "from robo_control.journal_sender import JournaledManipulatorSender"
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.runtime --help
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.runtime_report --help
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.binding_tools --help

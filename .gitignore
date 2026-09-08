@@ -8,6 +8,7 @@ build/
 *.egg-info/
 logs/
 recordings/
+local_state/
 .DS_Store
 Thumbs.db
 

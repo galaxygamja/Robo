@@ -6,6 +6,19 @@
 최종 갱신: 2026-09-08 (조작·센서 논리 규격 및 복합 픽셀/통신 회귀; 실물 출력 미연결)
 대상 저장소: galaxygamja/Robo
 
+2026-09-08 팀 작업 인계 — 조작 이력 저장·재시작 안전 장부
+- docs/OPERATION_JOURNAL_KO.md, operation_journal.py, journal_sender.py 참고.
+- SQLite 트랜잭션으로 hello/execute 반환 전 이력을 저장하고, 미확인 작업은 재시작 후
+  같은 로봇의 새 세션/새 명령도 차단한다. work_id는 전체 fleet에서 재실행 금지로 보존한다.
+- stop 요청 경로는 디스크를 접근하지 않는다. stop ACK도 집기/배출 성공으로 간주하지 않는다.
+- 작업자 확인 후 격리는 이력을 삭제하거나 같은 작업을 재시도하는 기능이 아니다.
+- 장부 연결 sender는 별도 API다. 실제 장치/live mission runtime에 자동 연결하지 않았다.
+- CAD/배출 단위/팔 회수 불일치는 팀원과 합의할 항목으로 남겼으며 해당 파일을 수정하지 않았다.
+- local_state/는 Git에서 제외. 실제 운용 DB를 만들지 않았으며 후속 사용자 요청에 따라 검증 완료 변경을 커밋·공유한다.
+- 검증: 전체 OpenCV 5 회귀 808개, 신규 장부 36개 통과. 신규 시험은 영상 의존성 없이도 통과.
+  wheel/소스 배포본 빌드 및 별도 설치본의 장부 생성·예약·재열기 확인 완료.
+
+
 2026-09-08 팀 작업 인계 — 우선순위 2 복합 회귀 추가
 - 이전 조작·센서 논리 규격은 3f43cbd로 main 커밋·푸시 완료.
 - 상세: docs/COMPOUND_FAULTS_KO.md. tools/verify_compound_faults.py 추가,
