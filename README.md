@@ -1,5 +1,7 @@
 # Robo Control Lab
 
+> 최신 출력 하드웨어(2026-09-08): [햄스터 v0.9](v0.9/README.md)와 [비버 v0.7](beaver_v0.7_hardware/README.md)에 N20 6 V 100 RPM 모터, Ø43 mm D축 바퀴와 HJ-2S 7.4 V 350 mAh 배터리 장착부를 반영했습니다. 공통 규격·전원 안전·실물 확인 항목은 [모터·배터리 규격](MOTOR_BATTERY_SPECIFICATIONS.md)을 확인하세요. 두 버전 모두 자동 기하 검증을 통과했으며, 대량 출력 전 모터 마운트와 배터리 트레이 시험 출력이 필요합니다.
+
 > 2026-09-08: [조작 이력 저장·재시작 안전 장부](docs/OPERATION_JOURNAL_KO.md)를 추가했습니다.
 > 미확인 조작은 재시작·새 세션에서도 자동 재실행하지 않습니다. 장부 연결 송신기는 별도 API이며
 > 실제 장치/live mission runtime에는 아직 자동 연결하지 않았습니다.

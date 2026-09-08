@@ -1,0 +1,540 @@
+{
+  "version": "hamster-v0.9-hardware",
+  "result": "PROTOTYPE_READY_AFTER_DELIVERY_FIT_CHECK",
+  "source_sha256": "1eb67638d4e27075515b89d2b2ee4b63dbcc3315817c838c1620229371262dac",
+  "hardware": {
+    "motor_body_mm": [
+      33,
+      12,
+      10
+    ],
+    "motor_shaft_mm": [
+      3,
+      9
+    ],
+    "wheel_mm": [
+      43,
+      17.5
+    ],
+    "shaft_insertion_mm": 8,
+    "battery_nominal_body_mm": [
+      56,
+      28,
+      13
+    ],
+    "battery_clearance_each_side_mm": 1.0
+  },
+  "clearances_mm": {
+    "motor_to_barrier_vertical": 6.2,
+    "battery_to_barrier_vertical": 5.2,
+    "battery_to_motor_lateral": 3.7,
+    "battery_to_gate": 2.0,
+    "battery_to_cradle_lateral": 0.6,
+    "battery_to_caster_vertical": 0.5,
+    "battery_to_deck_vertical": 14.0
+  },
+  "complete_envelope_mm": [
+    138.4,
+    112,
+    100
+  ],
+  "printed_structure": {
+    "file": "hamster_v0.9_printed_structure_REVIEW_ONLY.stl",
+    "size_mm": [
+      102.6,
+      112.0,
+      100.0
+    ],
+    "bounds_mm": [
+      [
+        -51.3,
+        -56.0,
+        0.0
+      ],
+      [
+        51.3,
+        56.0,
+        100.0
+      ]
+    ],
+    "volume_mm3_each": 200631.511,
+    "centroid_mm": [
+      0.0067,
+      -1.8486,
+      55.9241
+    ],
+    "watertight": true,
+    "connected_components": 4,
+    "bottom_z_mm": 0.0,
+    "sha256": "43837f2f5768893ea82905bdee3147da7bf77b0cf9e74b1d36696169fdd75ceb"
+  },
+  "support_polygon_xy_mm": [
+    [
+      0,
+      -40
+    ],
+    [
+      60.45,
+      -15
+    ],
+    [
+      47.25,
+      34
+    ],
+    [
+      -47.25,
+      34
+    ],
+    [
+      -60.45,
+      -15
+    ]
+  ],
+  "printed_centroid_inside_support_polygon": true,
+  "checks": {
+    "gate_up_fixed_parts_empty_intersection": true,
+    "gate_down_fixed_parts_empty_intersection": true,
+    "offset_disk_to_skids_empty_intersection": true,
+    "wheels_to_prints_empty_intersection": true,
+    "motors_to_prints_empty_intersection": true,
+    "battery_to_prints_empty_intersection": true,
+    "battery_to_motors_empty_intersection": true,
+    "kinematics_179_samples_monotonic": true,
+    "protected_capture_geometry_preserved": true,
+    "all_print_stls_watertight_single_component_on_bed": true
+  },
+  "protected_capture_parameters": {
+    "sample_diameter": true,
+    "sample_thickness": true,
+    "sample_radial_clearance": true,
+    "barrier_inner_radius": true,
+    "rear_barrier_arc": true,
+    "rear_left_center_angle": true,
+    "rear_right_center_angle": true,
+    "front_gate_arc": true,
+    "front_gate_height": true,
+    "front_gate_thickness": true,
+    "front_gate_up_bottom_z": true,
+    "funnel_front_width": true,
+    "funnel_exit_width": true,
+    "funnel_length": true,
+    "funnel_wall_height": true,
+    "funnel_wall_thickness": true,
+    "funnel_tip_radius": true,
+    "funnel_curve_strength": true
+  },
+  "printable_stls": [
+    {
+      "file": "01_upper_shell.stl",
+      "size_mm": [
+        100.0,
+        112.0,
+        90.7
+      ],
+      "bounds_mm": [
+        [
+          -50.0,
+          -56.0,
+          0.0
+        ],
+        [
+          50.0,
+          56.0,
+          90.7
+        ]
+      ],
+      "volume_mm3_each": 95858.729,
+      "centroid_mm": [
+        -0.0,
+        6.3342,
+        35.6334
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "ac4021ba314bcd330426f6549e677be1ce41a1420e6347c061d8c8ca7be81f2a",
+      "quantity": 1
+    },
+    {
+      "file": "02_lower_frame_STABILITY_SKIDS.stl",
+      "size_mm": [
+        100.0,
+        112.0,
+        61.0
+      ],
+      "bounds_mm": [
+        [
+          -50.0,
+          -56.0,
+          0.0
+        ],
+        [
+          50.0,
+          56.0,
+          61.0
+        ]
+      ],
+      "volume_mm3_each": 25758.472,
+      "centroid_mm": [
+        0.0,
+        15.0764,
+        17.3269
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "b3d0f0f6638b7ab9dfcd501feef206af33abc06de5e9bc4414a920f9194d2d6c",
+      "quantity": 1
+    },
+    {
+      "file": "03_lid.stl",
+      "size_mm": [
+        100.0,
+        112.0,
+        3.0
+      ],
+      "bounds_mm": [
+        [
+          -50.0,
+          -56.0,
+          0.0
+        ],
+        [
+          50.0,
+          56.0,
+          3.0
+        ]
+      ],
+      "volume_mm3_each": 32318.53,
+      "centroid_mm": [
+        -0.0,
+        0.5614,
+        1.4978
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "6d5068907ce932883bdb95500bdd7082377a3fce0165c5018369e53e70bb05c8",
+      "quantity": 1
+    },
+    {
+      "file": "04_gate_slider_08MM_FLOOR.stl",
+      "size_mm": [
+        78.0,
+        16.2056,
+        33.0
+      ],
+      "bounds_mm": [
+        [
+          -39.0,
+          16.2635,
+          0.0
+        ],
+        [
+          39.0,
+          32.4691,
+          33.0
+        ]
+      ],
+      "volume_mm3_each": 4030.986,
+      "centroid_mm": [
+        1.7213,
+        24.1169,
+        16.6802
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "0b3b80e54a9949f88bd8a3999d7353861f5a7532ad1f3af21864f99e2df7596e",
+      "quantity": 1
+    },
+    {
+      "file": "05_guide_cap_x2.stl",
+      "size_mm": [
+        19.0,
+        10.0,
+        7.0
+      ],
+      "bounds_mm": [
+        [
+          -4.0,
+          -5.0,
+          0.0
+        ],
+        [
+          15.0,
+          5.0,
+          7.0
+        ]
+      ],
+      "volume_mm3_each": 683.938,
+      "centroid_mm": [
+        3.3456,
+        0.0,
+        2.5155
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "a88b28cb857af56203f4492e7fc678de96ec023fa4993be45a122b1889a3a770",
+      "quantity": 2
+    },
+    {
+      "file": "06_servo_mount.stl",
+      "size_mm": [
+        100.0,
+        36.0,
+        20.0
+      ],
+      "bounds_mm": [
+        [
+          -50.0,
+          9.7678,
+          0.0
+        ],
+        [
+          50.0,
+          45.7678,
+          20.0
+        ]
+      ],
+      "volume_mm3_each": 8553.309,
+      "centroid_mm": [
+        -1.5877,
+        30.4635,
+        7.5877
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "c42fe793a6932de99383e8a8e9417b13f172457ec54e61be6cdb0b2ef02a8c04",
+      "quantity": 1
+    },
+    {
+      "file": "07_servo_clamp.stl",
+      "size_mm": [
+        6.0,
+        36.0,
+        5.6
+      ],
+      "bounds_mm": [
+        [
+          -3.0,
+          -18.0,
+          0.0
+        ],
+        [
+          3.0,
+          18.0,
+          5.6
+        ]
+      ],
+      "volume_mm3_each": 767.479,
+      "centroid_mm": [
+        -0.0,
+        0.0,
+        2.1545
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "03c2169ede6e3829c2a834b2adc075532c4d5b0df0427bf4bc75599974d67712",
+      "quantity": 1
+    },
+    {
+      "file": "08_connecting_link.stl",
+      "size_mm": [
+        6.0,
+        27.0,
+        2.5
+      ],
+      "bounds_mm": [
+        [
+          -3.0,
+          -13.5,
+          0.0
+        ],
+        [
+          3.0,
+          13.5,
+          2.5
+        ]
+      ],
+      "volume_mm3_each": 355.006,
+      "centroid_mm": [
+        -0.0,
+        -0.0,
+        1.25
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "477ca0b84895c3a57767c136770700f6f7fe454e3e59006b9c5ee49668b6867e",
+      "quantity": 1
+    },
+    {
+      "file": "09_motor_mount_left_N20.stl",
+      "size_mm": [
+        36.7,
+        24.7,
+        30.0
+      ],
+      "bounds_mm": [
+        [
+          -17.1,
+          -12.35,
+          0.0
+        ],
+        [
+          19.6,
+          12.35,
+          30.0
+        ]
+      ],
+      "volume_mm3_each": 4462.999,
+      "centroid_mm": [
+        2.2636,
+        -0.0,
+        10.4631
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "68f7b2875bd98967f22d6e643e7e9ceafcb604d57854ad40f6a2415df56f0bab",
+      "quantity": 1
+    },
+    {
+      "file": "10_motor_mount_right_N20.stl",
+      "size_mm": [
+        36.7,
+        24.7,
+        30.0
+      ],
+      "bounds_mm": [
+        [
+          -19.6,
+          -12.35,
+          0.0
+        ],
+        [
+          17.1,
+          12.35,
+          30.0
+        ]
+      ],
+      "volume_mm3_each": 4462.999,
+      "centroid_mm": [
+        -2.2636,
+        -0.0,
+        10.4631
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "e39ec0d349c3c2d1130781216a8be086962d3b769c23dc6f055bf757f9cd8e62",
+      "quantity": 1
+    },
+    {
+      "file": "11_electronics_deck.stl",
+      "size_mm": [
+        86.0,
+        52.0,
+        3.5
+      ],
+      "bounds_mm": [
+        [
+          -43.0,
+          -26.0,
+          0.0
+        ],
+        [
+          43.0,
+          26.0,
+          3.5
+        ]
+      ],
+      "volume_mm3_each": 10104.809,
+      "centroid_mm": [
+        -0.0,
+        0.8094,
+        1.75
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "40960c12653cc2914d1f090c69ae7d38f9f97d40bba5a929f971fdfc660c4b64",
+      "quantity": 1
+    },
+    {
+      "file": "12_battery_tray_SCX24_350mAh.stl",
+      "size_mm": [
+        45.0,
+        61.6,
+        29.5
+      ],
+      "bounds_mm": [
+        [
+          -22.5,
+          -30.8,
+          0.0
+        ],
+        [
+          22.5,
+          30.8,
+          29.5
+        ]
+      ],
+      "volume_mm3_each": 11363.111,
+      "centroid_mm": [
+        -0.0,
+        -0.3698,
+        11.3532
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "08dc978e2f9bc4248b4c6a7b27681700ea1a7ad39c42dc41d4fd67bf36bf178b",
+      "quantity": 1
+    },
+    {
+      "file": "13_caster_mount.stl",
+      "size_mm": [
+        47.0,
+        16.5,
+        15.0
+      ],
+      "bounds_mm": [
+        [
+          -23.5,
+          -12.5,
+          0.0
+        ],
+        [
+          23.5,
+          4.0,
+          15.0
+        ]
+      ],
+      "volume_mm3_each": 3003.983,
+      "centroid_mm": [
+        -0.0,
+        -5.9437,
+        3.5375
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "69931dc0b8440e2c1b0b9aacec8905315f9eb35e85e624438ce318b1718a65e6",
+      "quantity": 1
+    }
+  ],
+  "printed_part_types": 13,
+  "printed_piece_count": 14,
+  "approx_printed_volume_mm3": 202408.29,
+  "approx_pla_mass_g_at_1_24g_cm3": 250.99,
+  "remaining_real_tests": [
+    "Measure the delivered battery body, wrapping, plugs and wire bend radius before full production.",
+    "Print one N20 mount first and verify body fit, D-flat orientation and 8 mm hub engagement.",
+    "Verify loaded turning current and measure the complete assembled centre of mass."
+  ]
+}

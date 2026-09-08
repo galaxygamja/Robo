@@ -1,0 +1,545 @@
+{
+  "version": "beaver-v0.7-hardware",
+  "result": "PROTOTYPE_READY_AFTER_DELIVERY_FIT_CHECK",
+  "source_sha256": "11eeadec3d3c0067e9ce7b839f22cef7b88924e06cbd469a576067f2e8f371c7",
+  "hardware": {
+    "motor_body_mm": [
+      33,
+      12,
+      10
+    ],
+    "motor_shaft_mm": [
+      3,
+      9
+    ],
+    "wheel_mm": [
+      43,
+      17.5
+    ],
+    "shaft_insertion_mm": 8,
+    "battery_nominal_body_mm": [
+      56,
+      28,
+      13
+    ],
+    "battery_clearance_each_side_mm": 0.8
+  },
+  "clearances_mm": {
+    "wheel_to_chassis_axial": 2.0,
+    "wheel_to_housing_axial": 13.0,
+    "motor_body_pass_through": 0.6,
+    "battery_to_motor_vertical": 0.3,
+    "battery_to_motor_mount_lateral": 1.6
+  },
+  "complete_closed_envelope_mm": [
+    133,
+    98.2875,
+    94
+  ],
+  "gate_open_y_envelope_mm": 144.92,
+  "printed_structure": {
+    "file": "beaver_v0.7_printed_structure_REVIEW_ONLY.stl",
+    "size_mm": [
+      97.2,
+      91.8111,
+      94.0
+    ],
+    "bounds_mm": [
+      [
+        -48.6,
+        -49.5,
+        0.0
+      ],
+      [
+        48.6,
+        42.3111,
+        94.0
+      ]
+    ],
+    "volume_mm3_each": 99314.055,
+    "centroid_mm": [
+      0.9698,
+      -13.9791,
+      30.172
+    ],
+    "watertight": false,
+    "connected_components": 2,
+    "bottom_z_mm": 0.0,
+    "sha256": "e15359f7334f33f722ddec118db35033cd943b8c0673c9c8fa7ca9fff9f6b628"
+  },
+  "support_polygon_xy_mm": [
+    [
+      -43.5,
+      -43
+    ],
+    [
+      43.5,
+      -43
+    ],
+    [
+      57.75,
+      -23
+    ],
+    [
+      43.5,
+      16
+    ],
+    [
+      -43.5,
+      16
+    ],
+    [
+      -57.75,
+      -23
+    ]
+  ],
+  "printed_centroid_inside_support_polygon": true,
+  "checks": {
+    "housing_close_empty_intersection": true,
+    "housing_open_empty_intersection": true,
+    "wheel_to_prints_empty_intersection": true,
+    "patient_to_jaws_empty_intersection": true,
+    "patient_to_skids_empty_intersection": true,
+    "boxes_to_magazine_zero_volume_contact": true,
+    "motors_to_prints_empty_intersection": true,
+    "battery_to_prints_empty_intersection": true,
+    "battery_to_motors_empty_intersection": true,
+    "protected_front_gripper_geometry_preserved": true,
+    "all_print_stls_watertight_single_component_on_bed": true
+  },
+  "protected_front_gripper_parameters": {
+    "patient_diameter": true,
+    "patient_height": true,
+    "radial_clearance": true,
+    "patient_center": true,
+    "jaw_inner_radius": true,
+    "jaw_outer_radius": true,
+    "jaw_arc_start": true,
+    "jaw_arc_end": true,
+    "jaw_pivot": true,
+    "jaw_open_angle": true,
+    "jaw_close_angle": true,
+    "jaw_tip_rounding_r": true,
+    "jaw_lever_vector": true,
+    "link_length": true,
+    "yoke_link_x": true,
+    "collar_outer_radius": true,
+    "collar_start_angle": true,
+    "collar_end_angle": true
+  },
+  "printable_stls": [
+    {
+      "file": "01_integrated_chassis_N20_DRIVE.stl",
+      "size_mm": [
+        97.0,
+        69.5,
+        40.5
+      ],
+      "bounds_mm": [
+        [
+          -48.5,
+          -48.0,
+          0.0
+        ],
+        [
+          48.5,
+          21.5,
+          40.5
+        ]
+      ],
+      "volume_mm3_each": 45860.452,
+      "centroid_mm": [
+        -0.0,
+        -11.3349,
+        18.9359
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "a299bc1f6c3683b9b9543798009541db7e0a8ced3d67f404abd696c81b22f983",
+      "quantity": 1
+    },
+    {
+      "file": "02_jaw_left_M25_CLEARANCE.stl",
+      "size_mm": [
+        32.3471,
+        37.3111,
+        23.0
+      ],
+      "bounds_mm": [
+        [
+          -5.0,
+          -5.0,
+          0.0
+        ],
+        [
+          27.3471,
+          32.3111,
+          23.0
+        ]
+      ],
+      "volume_mm3_each": 4675.696,
+      "centroid_mm": [
+        9.2443,
+        10.549,
+        8.1701
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "db81b3c49c698c6ece682442c957a5d2194aeef4a5ff94a4120303bef5dc8a25",
+      "quantity": 1
+    },
+    {
+      "file": "03_jaw_right_M25_CLEARANCE.stl",
+      "size_mm": [
+        32.3471,
+        37.3111,
+        23.0
+      ],
+      "bounds_mm": [
+        [
+          -27.3471,
+          -5.0,
+          0.0
+        ],
+        [
+          5.0,
+          32.3111,
+          23.0
+        ]
+      ],
+      "volume_mm3_each": 4675.696,
+      "centroid_mm": [
+        -9.2443,
+        10.549,
+        8.1701
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "608c4f3d4515db2eeb03ada1e6f89e7ae7d4d7504b3731e1e47f44303974bd3a",
+      "quantity": 1
+    },
+    {
+      "file": "04_slider_yoke_M25_CLEARANCE.stl",
+      "size_mm": [
+        49.0,
+        5.0,
+        2.5
+      ],
+      "bounds_mm": [
+        [
+          -24.5,
+          -2.5,
+          0.0
+        ],
+        [
+          24.5,
+          2.5,
+          2.5
+        ]
+      ],
+      "volume_mm3_each": 518.288,
+      "centroid_mm": [
+        -0.3303,
+        0.0,
+        1.25
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "157e64f17d7b35b7b1ecd78ff9a749f435cb129e0ea8e964912e7433434cc751",
+      "quantity": 1
+    },
+    {
+      "file": "05_link_x2_M25_CLEARANCE.stl",
+      "size_mm": [
+        13.0,
+        5.0,
+        2.5
+      ],
+      "bounds_mm": [
+        [
+          -2.5,
+          -2.5,
+          0.0
+        ],
+        [
+          10.5,
+          2.5,
+          2.5
+        ]
+      ],
+      "volume_mm3_each": 116.036,
+      "centroid_mm": [
+        4.0,
+        -0.0,
+        1.25
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "24a446ab81062b6f91f4d75037f0813d3bb1f445a1a97ade0bde102c8e2da97b",
+      "quantity": 2
+    },
+    {
+      "file": "06_front_servo_mount.stl",
+      "size_mm": [
+        47.5,
+        16.0,
+        45.5
+      ],
+      "bounds_mm": [
+        [
+          -22.0,
+          -10.75,
+          0.0
+        ],
+        [
+          25.5,
+          5.25,
+          45.5
+        ]
+      ],
+      "volume_mm3_each": 6800.076,
+      "centroid_mm": [
+        4.8034,
+        -5.9269,
+        22.253
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "1bff30e8a139cc6ceaa75c5b226f60045364492a262142d26247e761ce0f7fa0",
+      "quantity": 1
+    },
+    {
+      "file": "07_cargo_magazine_STEEPER.stl",
+      "size_mm": [
+        77.4,
+        38.7,
+        53.5
+      ],
+      "bounds_mm": [
+        [
+          -38.7,
+          -49.5,
+          0.0
+        ],
+        [
+          38.7,
+          -10.8,
+          53.5
+        ]
+      ],
+      "volume_mm3_each": 20351.846,
+      "centroid_mm": [
+        -0.0568,
+        -25.9027,
+        15.5304
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "a1cc31bb622ae1ffbe51f67eb5aed7e3807c228bc0c738bf92835a4ed69cc26e",
+      "quantity": 1
+    },
+    {
+      "file": "08_rear_dump_gate_STRONG_KICK_CAM.stl",
+      "size_mm": [
+        31.6,
+        56.5,
+        13.0312
+      ],
+      "bounds_mm": [
+        [
+          -13.5,
+          0.0,
+          0.0
+        ],
+        [
+          18.1,
+          56.5,
+          13.0312
+        ]
+      ],
+      "volume_mm3_each": 5441.878,
+      "centroid_mm": [
+        0.7442,
+        31.5115,
+        2.543
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "7de29c081a02dcd4869eaf0afb65889497a3258a37cadb09c70d4ce8a3065b5d",
+      "quantity": 1
+    },
+    {
+      "file": "09_dump_servo_mount.stl",
+      "size_mm": [
+        18.7,
+        24.6,
+        32.0
+      ],
+      "bounds_mm": [
+        [
+          16.4,
+          -45.8,
+          0.0
+        ],
+        [
+          35.1,
+          -21.2,
+          32.0
+        ]
+      ],
+      "volume_mm3_each": 2827.979,
+      "centroid_mm": [
+        21.7245,
+        -31.8315,
+        11.7031
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": 0.0,
+      "sha256": "4b06a35d5a726206929aae8a7a6d5838643c71d11c59b7b29989562cc1b33449",
+      "quantity": 1
+    },
+    {
+      "file": "10_removable_upper_housing_STRONG_BOSSES.stl",
+      "size_mm": [
+        79.0,
+        42.4724,
+        20.0
+      ],
+      "bounds_mm": [
+        [
+          -39.5,
+          -39.7362,
+          -0.0
+        ],
+        [
+          39.5,
+          2.7363,
+          20.0
+        ]
+      ],
+      "volume_mm3_each": 3253.793,
+      "centroid_mm": [
+        -0.0,
+        -8.6989,
+        11.4654
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": -0.0,
+      "sha256": "d340937769a5b4900db1ede430a58fe5d4104998fc3997b48249d54208943193",
+      "quantity": 1
+    },
+    {
+      "file": "11_battery_tray_SCX24_350mAh.stl",
+      "size_mm": [
+        75.0,
+        38.3,
+        7.5
+      ],
+      "bounds_mm": [
+        [
+          -37.5,
+          -39.8,
+          -0.0
+        ],
+        [
+          37.5,
+          -1.5,
+          7.5
+        ]
+      ],
+      "volume_mm3_each": 2964.976,
+      "centroid_mm": [
+        -0.0,
+        -23.966,
+        2.3288
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": -0.0,
+      "sha256": "4adb4e03c2c0e49ff73451dc936d504821a0ad2c355d73c363c902ee32c83fe9",
+      "quantity": 1
+    },
+    {
+      "file": "12_motor_mount_left_N20.stl",
+      "size_mm": [
+        20.1,
+        37.0,
+        21.5
+      ],
+      "bounds_mm": [
+        [
+          -48.6,
+          -38.5,
+          -0.0
+        ],
+        [
+          -28.5,
+          -1.5,
+          21.5
+        ]
+      ],
+      "volume_mm3_each": 2112.653,
+      "centroid_mm": [
+        -37.4033,
+        -22.1249,
+        10.8686
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": -0.0,
+      "sha256": "6e44e9be73b5ae14ea8426e89e9567afd961c6b345f0ce8e80eccaa69b840fe4",
+      "quantity": 1
+    },
+    {
+      "file": "13_motor_mount_right_N20.stl",
+      "size_mm": [
+        20.1,
+        37.0,
+        21.5
+      ],
+      "bounds_mm": [
+        [
+          28.5,
+          -38.5,
+          -0.0
+        ],
+        [
+          48.6,
+          -1.5,
+          21.5
+        ]
+      ],
+      "volume_mm3_each": 2112.653,
+      "centroid_mm": [
+        37.4033,
+        -22.1249,
+        10.8686
+      ],
+      "watertight": true,
+      "connected_components": 1,
+      "bottom_z_mm": -0.0,
+      "sha256": "fe1d05a645202b374130af250ad2d6ceccdade4ff2c8ea2e9aa12b75f2ebc338",
+      "quantity": 1
+    }
+  ],
+  "printed_part_types": 13,
+  "printed_piece_count": 14,
+  "approx_printed_volume_mm3": 101828.06,
+  "approx_pla_mass_g_at_1_24g_cm3": 126.27,
+  "remaining_real_tests": [
+    "Measure the delivered battery body, wrapping, plugs and wire bend radius before full production.",
+    "Print one N20 mount first and verify body fit, D-flat orientation and 8 mm hub engagement.",
+    "Run at least 20 loaded dump cycles and verify loaded turning current.",
+    "Measure the complete assembled centre of mass with purchased hardware and payload installed."
+  ]
+}
