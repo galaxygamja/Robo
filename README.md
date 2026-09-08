@@ -1,5 +1,9 @@
 # Robo Control Lab
 
+> 2026-09-08: [조작 명령·센서 논리 규격과 가짜 장치 시험](docs/MANIPULATOR_PROTOCOL_KO.md).
+> `python -m robo_control.manipulator_lab --compact`로 4대의 ACK 유실·중복·센서 지연·취소를 검사합니다.
+> 주행 v1과 별도인 초안이며, 실제 장치 또는 임무 성공 센서로 연결하지 않습니다.
+
 > 2026-09-07 운영 준비: [관측 물체 → 임무 ID 연결](docs/HARDWARE_FREE_OPERATIONS_KO.md).
 > `--mission-observe-only`로 정지 상태에서 관측을 기록하고, `binding_tools`로 명시 선택한 대상의
 > 미검토 초안을 만듭니다. `--bindings`는 검토된 초기 영역의 단일 관측만 연결하며 자동 재매칭하지 않습니다.
