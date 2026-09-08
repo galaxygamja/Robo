@@ -1,5 +1,9 @@
 # Robo Control Lab
 
+> 2026-09-08: [복합 오류 회귀시험](docs/COMPOUND_FAULTS_KO.md)을 추가했습니다.
+> 기존 운영 검증에 `--compound-faults`를 붙이면 가림·같은 색 물체 교차·다중 장애물과
+> 통신 지연/정지 ACK 유실을 함께 검사합니다. 생성 픽셀·결정적 시험 시계이며 실물 검증은 아닙니다.
+
 > 2026-09-08: [조작 명령·센서 논리 규격과 가짜 장치 시험](docs/MANIPULATOR_PROTOCOL_KO.md).
 > `python -m robo_control.manipulator_lab --compact`로 4대의 ACK 유실·중복·센서 지연·취소를 검사합니다.
 > 주행 v1과 별도인 초안이며, 실제 장치 또는 임무 성공 센서로 연결하지 않습니다.

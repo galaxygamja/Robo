@@ -252,6 +252,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, required=True, help="NEW directory; never overwrite")
     parser.add_argument("--seconds", type=float, default=12., help="each generated clip, 6..20 seconds")
+    parser.add_argument("--compound-faults", action="store_true",
+                        help="also run generated-pixel compound faults with deterministic clocks, not real-time")
     parser.add_argument("--observe-only-soak-s", type=float, default=0.,
                         help="optional separate stationary observation soak, 5..600 seconds; default off")
     args = parser.parse_args(argv)
@@ -272,12 +274,18 @@ def main(argv=None):
         if len({r["checks"]["session_id"] for r in results}) != len(SCENARIOS):
             raise AssertionError("Independent executions reused a runtime session ID")
         soak = run_observation_soak(root, args.observe_only_soak_s) if args.observe_only_soak_s else None
+        compound = []
+        if args.compound_faults:
+            from tools.verify_compound_faults import CASES, run_case
+            compound = [run_case(root, name) for name in CASES]
         evidence = {"schema_version": 1, "status": "passed", "fixture": "generated_static_tags_and_objects",
             "physical_camera_used": False, "physical_robot_used": False, "physical_stop_verified": False,
-            "geometry_is_fixture_only": True, **versions, "scenarios": results, "observation_soak": soak}
+            "geometry_is_fixture_only": True, **versions, "scenarios": results, "observation_soak": soak,
+            "compound_cases": compound, "compound_clock_mode": "deterministic_not_realtime" if compound else None}
         write_json(root/"verification.json", evidence)
         print(json.dumps({"status": "passed", "output_dir": str(root), **versions,
             "observe_only_soak_s": args.observe_only_soak_s,
+            "compound_cases": len(compound),
             "scenarios": [{"scenario": r["scenario"], "closed_reason": r["expected_reason"],
                            **r["checks"]} for r in results]}, indent=2, allow_nan=False))
         return 0
