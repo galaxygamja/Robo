@@ -39,6 +39,19 @@ def armed(robot="H1", *, host=10., receiver=1000.):
 
 
 class WireSenderTests(unittest.TestCase):
+    def test_pending_body_setpoint_is_detached_read_only_and_clears_on_ack(self):
+        sender, receiver = armed()
+        self.assertIsNone(sender.pending_body_setpoint)
+        message = sender.drive_from_packet(packet(), 10.04)
+        before = sender.snapshot()
+        candidate = sender.pending_body_setpoint
+        self.assertEqual(message["v_mm_s"], candidate["v_mm_s"])
+        candidate["v_mm_s"] = 999
+        self.assertEqual(message["v_mm_s"], sender.pending_body_setpoint["v_mm_s"])
+        self.assertEqual(before, sender.snapshot())
+        sender.accept_response(receiver.receive(message, 1000.04), 10.05)
+        self.assertIsNone(sender.pending_body_setpoint)
+
     def test_real_differential_controller_and_independent_clock_receiver(self):
         sender, receiver = armed()
         source = packet()

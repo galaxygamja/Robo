@@ -370,6 +370,23 @@ class RuntimeWireSupervisor:
             self._trip("injected_response_capacity_or_size", now_s)
         return self.poll(now_s)
 
+    def motion_candidates(self):
+        """Bounded, read-only commanded hazards BEFORE delivering queued bytes.
+
+        These are synthetic setpoints, NOT measured velocities. Include both
+        the receiver's last modeled output and any pending drive; the latter
+        might be slower, faster or opposite. No clock or lease is advanced.
+        """
+        result = []
+        for rid in self.robot_ids:
+            receiver = self._receivers[rid].snapshot()
+            result.append({"robot_id": rid, "v_mm_s": receiver["v_mm_s"],
+                "omega_rad_s": receiver["omega_rad_s"], "evidence": "synthetic_receiver_setpoint"})
+            pending = self._senders[rid].pending_body_setpoint
+            if pending is not None:
+                result.append({"robot_id": rid, **pending, "evidence": "pending_unacknowledged_drive"})
+        return tuple(result)
+
     def snapshot(self):
         ready = self.ready
         state = ("closed" if self._closed else "fault" if self._fault is not None

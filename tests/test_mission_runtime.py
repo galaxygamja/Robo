@@ -182,6 +182,15 @@ class MissionExecutionTests(unittest.TestCase):
         self.assertTrue(any(abs(p["y_mm"]-500) > 60 for p in route))
         self.assertEqual(event["mission"]["waypoint_index"], 0)
 
+    def test_reviewed_static_geometry_is_detached_from_the_callers_input(self):
+        fleet, roles, plan = fixture()
+        plan["obstacles_mm"] = [{"x_mm": 440., "y_mm": 700., "width_mm": 60., "height_mm": 100.}]
+        mission = MissionExecutor(plan, fleet, roles=roles, field_size_mm=(1143., 1181.))
+        plan["obstacles_mm"][0]["x_mm"] = 800.
+        plan["obstacles_mm"].clear()
+        self.assertFalse(mission._segment_clear((460., 650.), (460., 850.), "H1", {}))
+        self.assertEqual(440., mission.plan["obstacles_mm"][0]["x_mm"])
+
     def test_blocked_route_latches_and_invalid_plan_fails_before_execution(self):
         def alter(p):
             p["tasks"][0]["pickup"].update(x_mm=650.)

@@ -11,6 +11,7 @@ from copy import deepcopy
 from dataclasses import asdict
 from itertools import pairwise
 
+from .collision_geometry import segment_near_rectangle
 from .control_loop import (
     ClosedLoopController,
     ControlLimits,
@@ -18,6 +19,7 @@ from .control_loop import (
     _polygon_distance,
 )
 from .models import Point, Rectangle
+from .observed_pickup import ObservedPickupTarget, PickupPolicy
 from .planner import GridSpec, ReservationTable, SpaceTimePlanner
 from .qualifier import Feedback, Manipulator, Piece, Zone, configured_tasks
 from .vision.calibration import COORDINATE_SYSTEM
@@ -34,9 +36,9 @@ class MissionExecutor:
         required = {"schema_version", "coordinate_system", "radii_mm", "cell_mm",
                     "obstacles_mm", "tasks"}
         if (not isinstance(plan, dict) or set(plan) != required
-                or type(plan["schema_version"]) is not int or plan["schema_version"] != 1
+                or type(plan["schema_version"]) is not int or plan["schema_version"] not in (1, 2)
                 or plan["coordinate_system"] != COORDINATE_SYSTEM):
-            raise ValueError("Mission needs schema 1, field-mm coordinates, radii, cell, obstacles and tasks")
+            raise ValueError("Mission needs schema 1/2, field-mm coordinates, radii, cell, obstacles and tasks")
         self.limits = limits or ControlLimits()
         self.roles = dict(roles)
         self.field = tuple(field_size_mm)
@@ -47,7 +49,8 @@ class MissionExecutor:
         if (not _number(self.cell_mm) or not 10 <= self.cell_mm <= 100
                 or math.prod(math.ceil(v / self.cell_mm) for v in self.field) > 4096):
             raise ValueError("Mission grid needs 10..100 mm cells and at most 4096 cells")
-        self.obstacles = plan["obstacles_mm"]
+        self.obstacles = deepcopy(plan["obstacles_mm"])
+        self.obstacle_map = None
         if not isinstance(self.obstacles, list) or len(self.obstacles) > 64:
             raise ValueError("At most 64 reviewed static obstacles")
         for box in self.obstacles:
@@ -68,6 +71,7 @@ class MissionExecutor:
         if not isinstance(self.entries, list) or not 1 <= len(self.entries) <= len(tasks):
             raise ValueError("Select at least one known qualifier task")
         seen = set()
+        self.pickup_policies = {}
         for entry in self.entries:
             if (not isinstance(entry, dict) or set(entry) != {"task_id", "pickup", "drop", "retreat"}
                     or not isinstance(entry["task_id"], str) or entry["task_id"] not in self.tasks
@@ -77,12 +81,20 @@ class MissionExecutor:
             rid = self.tasks[entry["task_id"]].robot_id
             for name in ("pickup", "drop", "retreat"):
                 goal = entry[name]
+                if name == "pickup" and isinstance(goal, dict) and goal.get("mode") == "observed_piece":
+                    if (plan["schema_version"] != 2
+                            or self.inventory[self.tasks[entry["task_id"]].piece_id].kind == "cube"):
+                        raise ValueError("Observed pickup needs schema 2 and a non-cube pickup task")
+                    self.pickup_policies[entry["task_id"]] = PickupPolicy.parse(goal, field_size_mm=self.field)
+                    continue
                 if not isinstance(goal, dict) or set(goal) != {"x_mm", "y_mm", "heading_rad"}:
                     raise ValueError("Robot approach poses need x/y mm and heading rad")
                 checked.set_goals({rid: goal})
                 if not self._segment_clear((goal["x_mm"], goal["y_mm"]),
                                            (goal["x_mm"], goal["y_mm"]), rid, {}):
                     raise ValueError("Robot approach pose intersects a static obstacle")
+        if plan["schema_version"] == 2 and not self.pickup_policies:
+            raise ValueError("Schema 2 requires at least one explicit observed-piece pickup")
         self.started_at = None
         self.elapsed_s = 0.0
         self.index = 0
@@ -99,6 +111,7 @@ class MissionExecutor:
         self.phase_serial = 0
         self.last_phase = None
         self.feedback_reason = None
+        self.observed_pickup = None
 
     @property
     def done(self):
@@ -107,6 +120,45 @@ class MissionExecutor:
     @property
     def command_id(self):
         return f"{self.session_id}:{self.index}:{self.phase_serial}"
+
+    @property
+    def pickup_piece_id(self):
+        """Target needing live visual identity NOW, not an imagined held object."""
+        if self.done or self.closed or self.fault:
+            return None
+        if self.active:
+            return self.active.piece.id if self.active.phase in {"approach", "align_pickup"} else None
+        task = self.tasks[self.entries[self.index]["task_id"]]
+        return task.piece_id if self.inventory[task.piece_id].kind != "cube" else None
+
+    def observe_pickup(self, world):
+        """Cheap pre-dispatch validation; no planning, feedback or task progress."""
+        if self.pickup_piece_id is None or not world.ready:
+            return
+        if world.session_id != self.session_id:
+            self.fault = "pickup_wrong_world_session"
+            return
+        task_id = self.entries[self.index]["task_id"]
+        policy = self.pickup_policies.get(task_id)
+        if policy is None:
+            return
+        if self.observed_pickup is None or self.observed_pickup.task_id != task_id:
+            self.observed_pickup = ObservedPickupTarget(policy, task_id=task_id, piece_id=self.pickup_piece_id)
+        goal = self.observed_pickup.observe(world)
+        self.fault = self.observed_pickup.fault
+        if self.fault or goal is None:
+            return
+        rid = self.tasks[task_id].robot_id
+        poses = {p.robot_id: {"robot_center_mm": p.position_mm} for p in world.robots}
+        if not self._segment_clear((goal["x_mm"], goal["y_mm"]), (goal["x_mm"], goal["y_mm"]), rid, poses):
+            self.fault = "observed_pickup_outside_free_space"
+            return
+        if self.route is not None and self.observed_pickup.replan_required():
+            if not self.observed_pickup.request_replan():
+                self.fault = self.observed_pickup.fault
+                return
+            self.route = None
+            self.arrival_streak = 0
 
     def poll(self, now_s):
         if self.started_at is None:
@@ -147,15 +199,32 @@ class MissionExecutor:
                for a, size in enumerate(self.field)):
             return False
         segment = [tuple(start), tuple(end)]
-        for box in self.obstacles:
+        for box in self._obstacle_rectangles():
             x, y, w, h = (box[k] for k in ("x_mm", "y_mm", "width_mm", "height_mm"))
-            polygon = [(x, y), (x+w, y), (x+w, y+h), (x, y+h)]
-            if _polygon_distance(segment, polygon) <= inset:
+            if segment_near_rectangle(start, end, (x, y, x+w, y+h), inset):
                 return False
         for other, pose in poses.items():
             if other != rid and _polygon_distance(segment, [tuple(pose["robot_center_mm"])]) <= inset + self.radii[other]:
                 return False
         return True
+
+    def _obstacle_rectangles(self):
+        return (*self.obstacles, *(self.obstacle_map.rectangles if self.obstacle_map else ()))
+
+    def recheck_observed_route(self, record):
+        """Invalidate a blocked remaining route before dispatch; replan later."""
+        if self.obstacle_map is None or self.route is None or self.active is None or self.fault:
+            return
+        poses = {p["robot_id"]: p for p in record["tracks"]}
+        rid = self.active.task.robot_id
+        points = [poses[rid]["robot_center_mm"],
+                  *[(p["x_mm"], p["y_mm"]) for p in self.route[self.route_index:]]]
+        if any(not self._segment_clear(a, b, rid, poses) for a, b in pairwise(points)):
+            if not self.obstacle_map.request_replan():
+                self.fault = self.obstacle_map.fault
+                return
+            self.route = None
+            self.arrival_streak = 0
 
     def _plan(self, rid, pose, goal, poses):
         # Reuse the existing A* in metres. Grid ticks are spatial search depth,
@@ -163,7 +232,7 @@ class MissionExecutor:
         pad = self.radii[rid] + self.limits.clearance_mm + self.cell_mm / math.sqrt(2)
         grid = GridSpec(self.field[0]/1000, self.field[1]/1000, self.cell_mm/1000, pad/1000)
         obstacles = [Rectangle(*(box[k]/1000 for k in ("x_mm", "y_mm", "width_mm", "height_mm")))
-                     for box in self.obstacles]
+                     for box in self._obstacle_rectangles()]
         for other, p in poses.items():
             if other != rid:
                 x, y = p["robot_center_mm"]
@@ -224,6 +293,9 @@ class MissionExecutor:
                 or any(not robot.valid_for_control for robot in world.robots)):
             self.interrupt("world_not_ready")
             return {}
+        self.observe_pickup(world)
+        if self.fault:
+            return {}
         if self.active is None:
             task = self.tasks[self.entries[self.index]["task_id"]]
             self.active = Manipulator(task, self.inventory[task.piece_id], self.zones[task.destination_id],
@@ -247,6 +319,13 @@ class MissionExecutor:
         poses = {p.robot_id: {"robot_center_mm": p.position_mm, "heading_rad": p.heading_rad,
                              "velocity_mm_s": p.velocity_mm_s} for p in world.robots}
         goal = self.entries[self.index][MOTION_PHASES[self.active.phase]]
+        observed = (self.observed_pickup if self.active.phase in {"approach", "align_pickup"}
+                    and self.active.task.id in self.pickup_policies else None)
+        if observed:
+            goal = observed.goal
+            if goal is None:
+                self.fault = "pickup_observation_unavailable"
+                return {}
         if self.route is None:
             self.route = self._plan(rid, poses[rid], goal, poses)
             self.route_index = 0
@@ -254,6 +333,12 @@ class MissionExecutor:
             if self.route is None:
                 self.fault = "route_unavailable"
                 return {}
+            if observed:
+                observed.planned()
+        if observed:
+            # Small target jitter need not rerun A*, but arrival must ALWAYS
+            # use the current measured endpoint, not an older planned point.
+            self.route[-1] = dict(goal)
         target = self.route[self.route_index]
         # Freshly check the connector on EVERY observation, including after an
         # unexpected externally moved robot or a route-tracking deviation.
@@ -264,7 +349,7 @@ class MissionExecutor:
         return {rid: dict(target)}
 
     def guard_command(self, packet, record):
-        if self.active is None or self.fault:
+        if self.fault:
             return
         poses = {p["robot_id"]: p for p in record["tracks"]}
         for command in packet["robots"]:
@@ -328,4 +413,9 @@ class MissionExecutor:
                 "route_lease_robot_id": self.active.task.robot_id if self.active and not self.closed else None,
                 "manipulator_intent": intent, "feedback_rejection": self.feedback_reason,
                 "world": deepcopy(self.world), "device_io": False,
+                "observed_pickup": self.observed_pickup.snapshot() if self.observed_pickup else None,
+                "observed_pickup_in_use": self.observed_pickup is not None and self.pickup_piece_id is not None
+                    and self.world is not None and self.world["ready"]
+                    and self.entries[self.index]["task_id"] in self.pickup_policies
+                    and self.observed_pickup.task_id == self.entries[self.index]["task_id"],
                 "score": None, "physical_mission_verified": False}

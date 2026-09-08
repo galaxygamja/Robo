@@ -408,23 +408,42 @@ class ObservationWorldAdapter:
         return self._snapshot()
 
     def bind_piece(self, piece_id, object_id, now_s, *, evidence):
+        return self.bind_pieces([(piece_id, object_id, evidence)], now_s)
+
+    def bind_pieces(self, bindings, now_s):
+        """Apply explicit one-to-one mappings atomically, or change none.
+
+        A startup review may name several objects. Failing on its final row
+        must not leave an accidentally usable partial mission mapping.
+        """
         world = self.poll(now_s)
         if self._closed or not world.ready:
             raise ValueError("Binding requires a ready observation session")
-        if not isinstance(piece_id, str) or piece_id not in self._catalog or not _label(evidence):
-            raise ValueError("Known mission piece and explicit mapping evidence required")
-        if not _label(object_id):
-            raise ValueError("Object track ID required")
-        obj = next((o for o in world.objects if o.object_id == object_id), None)
-        if obj is None or not obj.valid_for_pick:
-            raise ValueError("Binding requires a fresh, confirmed, unowned, unambiguous track")
-        if piece_id in self._bindings or any(oid == object_id for oid, _ in self._bindings.values()):
-            raise ValueError("Explicitly unbind before replacing an existing one-to-one binding")
-        spec = self._catalog[piece_id]
-        if spec.kind != obj.kind or (spec.colour is not None and spec.colour != obj.colour):
-            raise ValueError("Mission piece kind/colour does not match observation")
-        self._bindings[piece_id] = (object_id, evidence)
-        self._broken_bindings.pop(piece_id, None)
+        if not isinstance(bindings, (list, tuple)) or not 1 <= len(bindings) <= 512:
+            raise ValueError("A bounded, nonempty binding batch required")
+        pending, used = {}, {oid for oid, _ in self._bindings.values()}
+        objects = {o.object_id: o for o in world.objects}
+        for row in bindings:
+            if not isinstance(row, (list, tuple)) or len(row) != 3:
+                raise ValueError("Each binding needs piece ID, object ID and evidence")
+            piece_id, object_id, evidence = row
+            if not isinstance(piece_id, str) or piece_id not in self._catalog or not _label(evidence):
+                raise ValueError("Known mission piece and explicit mapping evidence required")
+            if not _label(object_id):
+                raise ValueError("Object track ID required")
+            obj = objects.get(object_id)
+            if obj is None or not obj.valid_for_pick:
+                raise ValueError("Binding requires a fresh, confirmed, unowned, unambiguous track")
+            if piece_id in self._bindings or piece_id in pending or object_id in used:
+                raise ValueError("Explicitly unbind before replacing an existing one-to-one binding")
+            spec = self._catalog[piece_id]
+            if spec.kind != obj.kind or (spec.colour is not None and spec.colour != obj.colour):
+                raise ValueError("Mission piece kind/colour does not match observation")
+            pending[piece_id] = (object_id, evidence)
+            used.add(object_id)
+        self._bindings.update(pending)
+        for piece_id in pending:
+            self._broken_bindings.pop(piece_id, None)
         return self._snapshot()
 
     def unbind_piece(self, piece_id, now_s):

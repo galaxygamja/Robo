@@ -10,7 +10,9 @@ import math
 from copy import deepcopy
 
 from .control_loop import ClosedLoopController, ControlLimits, MockActuatorBank
+from .mission_bindings import MissionBindings
 from .mission_runtime import MissionExecutor
+from .observed_obstacles import ObservedObstacleMap
 from .runtime_wire import RuntimeWireSupervisor
 from .vision.calibration import COORDINATE_SYSTEM
 from .vision.object_tracking import ObjectTracker
@@ -37,7 +39,17 @@ class LiveControlSession:
     def __init__(self, *, roles, field_size_mm, source_name, is_replay=False,
                  goals=None, radii_mm=None, recovery_frames=3, max_tick_gap_s=0.1,
                  limits=None, track_objects=False, session_id=None, configuration_id=None,
-                 mission_plan=None, fleet=None, wire_fake=False, wire_options=None):
+                 mission_plan=None, fleet=None, wire_fake=False, wire_options=None,
+                 binding_plan=None, observation_profile_id=None, mission_observe_only=False,
+                 obstacle_plan=None):
+        if obstacle_plan is not None and (mission_plan is None or track_objects is not True):
+            raise ValueError("Observed object obstacles require a mission and object tracking")
+        if (type(mission_observe_only) is not bool or mission_observe_only
+                and (mission_plan is None or wire_fake or binding_plan is not None)):
+            raise ValueError("Mission observation-only needs a mission and no wire/binding execution")
+        self.mission_observe_only = mission_observe_only
+        if binding_plan is not None and (mission_plan is None or track_objects is not True):
+            raise ValueError("Reviewed bindings require a mission and object tracking")
         if type(wire_fake) is not bool or (wire_options is not None and not wire_fake):
             raise ValueError("Explicit fake-wire mode is required for wire options")
         if wire_fake and mission_plan is None:
@@ -59,6 +71,8 @@ class LiveControlSession:
             raise ValueError("Mission plan and explicit goals/radii are mutually exclusive")
         self.mission = (MissionExecutor(mission_plan, fleet, roles=roles,
             field_size_mm=field_size_mm, limits=limits) if mission_plan is not None else None)
+        if self.mission and self.mission.pickup_policies and not mission_observe_only and binding_plan is None:
+            raise ValueError("Observed-piece pickup execution requires reviewed --bindings")
         drive_model = "differential_body" if self.mission else "mecanum"
         self.controller = ClosedLoopController(roles=roles, goals=goals,
             radii_mm=self.mission.radii if self.mission else radii_mm,
@@ -76,6 +90,18 @@ class LiveControlSession:
             source_name=source_name, session_id=self.controller.session_id,
             field_size_mm=field_size_mm, is_replay=is_replay, configuration_id=configuration_id,
             max_age_s=limits.max_pose_age_s, recovery_frames=max(3, recovery_frames)) if self.mission else None)
+        self.bindings = (MissionBindings(binding_plan,
+            pieces=[PieceSpec.from_piece(p) for p in self.mission.inventory.values()],
+            field_size_mm=field_size_mm, source_name=source_name, is_replay=is_replay,
+            observation_profile_id=observation_profile_id,
+            required_piece_ids={self.mission.tasks[e["task_id"]].piece_id for e in self.mission.entries
+                if self.mission.inventory[self.mission.tasks[e["task_id"]].piece_id].kind != "cube"})
+            if binding_plan is not None else None)
+        self.object_obstacles = (ObservedObstacleMap(obstacle_plan, field_size_mm=field_size_mm,
+            session_id=self.controller.session_id, max_age_s=limits.max_pose_age_s)
+            if obstacle_plan is not None else None)
+        if self.mission:
+            self.mission.obstacle_map = self.object_obstacles
         self.tracker = PoseTracker(self.controller.ids)
         self.object_tracker = ObjectTracker(self.controller.ids, max_frame_age_s=limits.max_pose_age_s) if track_objects else None
         self.configuration_id = configuration_id
@@ -187,6 +213,10 @@ class LiveControlSession:
                 "observation": deepcopy(observation), "command": deepcopy(command),
                 "object_tracking": self.object_tracker.poll(now_s) if self.object_tracker else None,
                 "mission": self.mission.snapshot() if self.mission else None,
+                "bindings": self.bindings.snapshot() if self.bindings else None,
+                "mission_observe_only": self.mission_observe_only,
+                "object_obstacles": (self.object_obstacles.poll(now_s, world_ready=self.mission.world["ready"])
+                                     if self.object_obstacles else None),
                 "actuator": self.bank.snapshot(), "is_replay": self.is_replay,
                 "input_mode": "video_replay" if self.is_replay else "live_camera",
                 "output_mode": "dry_run_commands",
@@ -207,7 +237,7 @@ class LiveControlSession:
             return self._event(now_s)
         if previous_tick is not None and now_s - previous_tick > self.max_tick_gap_s + 1e-9:
             return self.close(now_s, "supervisor_deadline_missed")
-        if self.mission:
+        if self.mission and not self.mission_observe_only:
             self.mission.poll(now_s)
             if self.mission.fault:
                 return self.close(now_s, self.mission.fault)
@@ -269,6 +299,65 @@ class LiveControlSession:
                 reason = "stale_observation"
             packet = self._hold(now_s, reason, record)
         else:
+            if self.object_obstacles:
+                self.object_obstacles.update(world, record.get("objects"), now_s)
+                if self.object_obstacles.fault and not self.mission_observe_only:
+                    return self.close(now_s, self.object_obstacles.fault)
+            if self.mission_observe_only:
+                # Preflight records the mission catalog + live object tracks
+                # without starting a task, assigning goals or arming receivers.
+                self.last_capture_s = stamp
+                self.fresh_streak = min(self.recovery_frames, self.fresh_streak + 1)
+                self.controller.set_paused(True)
+                packet = self.controller.tick(record, now_s)
+                packet["stop_reason"] = "mission_observation_only"
+                self.bank.receive(packet, now_s)
+                self.command, self.status = packet, packet["stop_reason"]
+                return self._event(now_s, command=packet, observation=record)
+            if self.object_obstacles and not self.object_obstacles.ready:
+                self.last_capture_s = stamp
+                self.fresh_streak = min(self.recovery_frames, self.fresh_streak + 1)
+                self.controller.set_paused(True)
+                packet = self.controller.tick(record, now_s)
+                packet["stop_reason"] = "awaiting_object_obstacles"
+                self.bank.receive(packet, now_s)
+                self.command, self.status = packet, packet["stop_reason"]
+                return self._event(now_s, command=packet, observation=record)
+            if self.bindings:
+                # Identity checks precede wire.poll(): a queued movement must
+                # not reach a receiver on the tick its pickup target is lost.
+                world = self.bindings.update(self.world_adapter, now_s)
+                if self.bindings.require_pickup(world, self.mission.pickup_piece_id):
+                    return self.close(now_s, self.bindings.fault)
+                if not self.bindings.activated:
+                    self.last_capture_s = stamp
+                    self.fresh_streak = min(self.recovery_frames, self.fresh_streak + 1)
+                    self.controller.set_paused(True)
+                    packet = self.controller.tick(record, now_s)
+                    packet["stop_reason"] = "awaiting_piece_bindings"
+                    self.bank.receive(packet, now_s)
+                    self.command, self.status = packet, packet["stop_reason"]
+                    return self._event(now_s, command=packet, observation=record)
+            if self.mission:
+                self.mission.observe_pickup(world)
+                if self.mission.fault:
+                    return self.close(now_s, self.mission.fault)
+                if world.ready:
+                    # New hazards are checked against current measured motion
+                    # and the last output BEFORE any delayed drive is delivered.
+                    self.mission.guard_command(self.bank.snapshot(), record)
+                    if self.wire:
+                        poses = {p["robot_id"]: p for p in record["tracks"]}
+                        for candidate in self.wire.motion_candidates():
+                            rid, speed = candidate["robot_id"], candidate["v_mm_s"]
+                            heading = poses[rid]["heading_rad"]
+                            # Old body commands act along the CURRENT measured
+                            # heading, not the heading at their creation time.
+                            self.mission.guard_command({"robots": [{"robot_id": rid,
+                                "velocity_world_mm_s": [speed*math.cos(heading), speed*math.sin(heading)]}]}, record)
+                    self.mission.recheck_observed_route(record)
+                    if self.mission.fault:
+                        return self.close(now_s, self.mission.fault)
             if self.wire:
                 # Validate current observations and known deadlines BEFORE
                 # allowing queued drive delivery; then process ACKs before

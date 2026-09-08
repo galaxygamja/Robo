@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "coordinate_system": "bottom_left_x_right_y_up_mm",
+  "reviewed": false,
+  "reviewed_by": "",
+  "evidence": "",
+  "position_margin_mm": null,
+  "max_route_replans": null,
+  "footprints": [
+    {"kind": "disc", "colour": null, "radius_mm": null},
+    {"kind": "cylinder", "colour": "red", "radius_mm": null},
+    {"kind": "cylinder", "colour": "yellow", "radius_mm": null},
+    {"kind": "cylinder", "colour": "green", "radius_mm": null},
+    {"kind": "cube", "colour": null, "radius_mm": null}
+  ]
+}

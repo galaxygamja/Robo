@@ -38,6 +38,23 @@ def robots(state):
 
 
 class RuntimeWireTests(unittest.TestCase):
+    def test_motion_candidates_include_prior_receiver_and_pending_without_dispatch(self):
+        wire = supervisor()
+        wire.start(0.)
+        wire.submit(packet(.01), .01)
+        wire.configure_link("H1", .02, request_delay_s=.05)
+        wire.submit(packet(.03, 2, all_idle=True), .03)
+        before = wire.snapshot()
+        values = [c for c in wire.motion_candidates() if c["robot_id"] == "H1"]
+        self.assertEqual(2, len(values))
+        self.assertGreater(values[0]["v_mm_s"], 0.)
+        self.assertEqual(0., values[1]["v_mm_s"])
+        values[0]["v_mm_s"] = 999
+        self.assertNotEqual(999, wire.motion_candidates()[0]["v_mm_s"])
+        self.assertEqual(before, wire.snapshot())
+        wire.poll(.09)
+        self.assertTrue(all(c["evidence"] == "synthetic_receiver_setpoint" for c in wire.motion_candidates()))
+
     def test_initial_explicit_handshake_is_zero_and_clock_origins_are_distinct(self):
         wire = supervisor()
         self.assertEqual("idle", wire.snapshot()["state"])

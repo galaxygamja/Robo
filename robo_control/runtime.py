@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .adapters import OpenCVCameraSource, VideoFileSource
 from .fleet import validate_tag_registry
+from .mission_bindings import load_binding_plan, load_review_json, profile_identity
 from .runtime_io import AsyncJsonlReport, LatestRecordMailbox
 from .runtime_session import LiveControlSession
 from .vision.calibration import COORDINATE_SYSTEM, FieldCalibration
@@ -46,6 +47,12 @@ def _parser():
     parser.add_argument("--wire-fake", action="store_true",
                         help="connect --mission to framed fake receivers; no network or hardware")
     parser.add_argument("--colors", type=Path, help="optional HSV profile, uses existing object tracker")
+    parser.add_argument("--bindings", type=Path,
+                        help="reviewed startup object identity regions; requires --mission and --colors")
+    parser.add_argument("--mission-observe-only", action="store_true",
+                        help="record mission world/object IDs without starting tasks or fake-wire")
+    parser.add_argument("--object-obstacles", type=Path,
+                        help="reviewed object footprints for live collision map; requires --mission and --colors")
     parser.add_argument("--report", type=Path, required=True, help="NEW JSONL file, never overwritten")
     parser.add_argument("--duration-s", type=_positive, default=120.0)
     parser.add_argument("--tick-hz", type=_positive, default=50.0)
@@ -245,11 +252,16 @@ def main(argv=None):
             raise ValueError("Moving camera needs per-frame dynamic calibration; static runtime is fixed-camera only")
         if args.wire_fake and args.mission is None:
             raise ValueError("--wire-fake requires --mission; legacy mecanum output is not a wire command")
+        if args.bindings is not None and (args.mission is None or args.colors is None):
+            raise ValueError("--bindings requires --mission and --colors")
+        if args.object_obstacles is not None and (args.mission is None or args.colors is None):
+            raise ValueError("--object-obstacles requires --mission and --colors")
         if args.camera is not None and args.camera < 0:
             raise ValueError("Camera index must be nonnegative")
         if not 20 <= args.tick_hz <= 100:
             raise ValueError("Supervisor tick-hz must be in [20, 100]")
-        inputs = [args.calibration, args.tags, args.fleet, args.goals, args.mission, args.colors, args.video]
+        inputs = [args.calibration, args.tags, args.fleet, args.goals, args.mission, args.colors,
+                  args.bindings, args.object_obstacles, args.video]
         if args.report.resolve() in {p.resolve() for p in inputs if p is not None}:
             raise ValueError("Report must be distinct from every input")
         calibration = FieldCalibration.load(args.calibration)
@@ -263,7 +275,10 @@ def main(argv=None):
         if args.video and not args.video.is_file():
             raise ValueError("Video must be an existing local file")
         goals, radii = load_goals(args.goals, roles, calibration)
-        mission_plan = json.loads(args.mission.read_text(encoding="utf-8-sig")) if args.mission else None
+        mission_plan = load_review_json(args.mission, name="Mission") if args.mission else None
+        binding_plan = load_binding_plan(args.bindings) if args.bindings else None
+        obstacle_plan = load_review_json(args.object_obstacles, name="Object obstacle") if args.object_obstacles else None
+        observation_profile_id = profile_identity(calibration.as_dict(), tags.as_dict(), colors)
         options = {"calibration": calibration.as_dict(),
                    "tags": {"dictionary_name": tags.dictionary_name, "tag_to_robot": dict(tags.tag_to_robot),
                        "heading_offsets_rad": dict(tags.heading_offsets_rad),
@@ -272,6 +287,9 @@ def main(argv=None):
                        "tag_size_tolerance_fraction": tags.tag_size_tolerance_fraction,
                        "hardware_verified": tags.hardware_verified},
                    "fleet": fleet_data, "colors": colors, "mission": mission_plan,
+                   "bindings": binding_plan,
+                   "object_obstacles": obstacle_plan,
+                   "mission_observe_only": args.mission_observe_only,
                    "transport_mode": "fake_wire" if args.wire_fake else "mock",
                    "video": str(args.video.resolve()) if args.video else None, "camera": args.camera}
         configuration_id = hashlib.sha256(json.dumps(options, sort_keys=True, allow_nan=False).encode()).hexdigest()
@@ -281,7 +299,19 @@ def main(argv=None):
             is_replay=args.video is not None, goals=goals, radii_mm=radii,
             recovery_frames=args.recovery_frames, track_objects=args.colors is not None,
             configuration_id=configuration_id, mission_plan=mission_plan, fleet=fleet_data,
-            wire_fake=args.wire_fake)
+            wire_fake=args.wire_fake, binding_plan=binding_plan,
+            observation_profile_id=observation_profile_id, mission_observe_only=args.mission_observe_only,
+            obstacle_plan=obstacle_plan)
+        if session.bindings:
+            configured_classes = {(p["kind"], p["color"]) for p in colors["profiles"]}
+            if any((e["kind"], e["colour"]) not in configured_classes
+                   for e in session.bindings.plan["bindings"]):
+                raise ValueError("Every binding kind/colour needs an enabled colour detector profile")
+        if session.object_obstacles:
+            configured_classes = {(p["kind"], p["color"]) for p in colors["profiles"]}
+            obstacle_classes = {(p["kind"], p["colour"]) for p in session.object_obstacles.plan["footprints"]}
+            if not configured_classes <= obstacle_classes:
+                raise ValueError("Every enabled detector class needs a reviewed obstacle footprint")
         context = multiprocessing.get_context("spawn")
         mailbox, stop = LatestRecordMailbox(context), context.Event()
         worker_status = context.RawValue("i", 0)
@@ -291,6 +321,9 @@ def main(argv=None):
             "calibration": calibration.as_dict(), "tags": tags.as_dict(), "roles": roles,
             "goals": session.controller.goals, "radii_mm": session.controller.radii_mm,
             "drive_model": session.controller.drive_model, "mission_plan": mission_plan,
+            "binding_plan": binding_plan, "observation_profile_id": observation_profile_id,
+            "mission_observe_only": args.mission_observe_only,
+            "obstacle_plan": obstacle_plan,
             "control_limits": vars(session.controller.limits), "tick_hz": args.tick_hz,
             "max_tick_gap_s": session.max_tick_gap_s, "recovery_frames": args.recovery_frames,
             "source_name": session.source_name, "is_replay": session.is_replay,

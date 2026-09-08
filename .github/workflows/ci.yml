@@ -85,6 +85,7 @@ jobs:
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.wire_lab --compact
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.runtime --help
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.runtime_report --help
+          "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.binding_tools --help
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.vision.lens_calibrate --help
           "$RUNNER_TEMP/wheel-env/bin/python" -m robo_control.vision.lens_capture --help
       - name: Install and smoke-test sdist outside checkout
@@ -100,6 +101,7 @@ jobs:
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.wire_lab --compact
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.runtime --help
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.runtime_report --help
+          "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.binding_tools --help
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.vision.lens_calibrate --help
           "$RUNNER_TEMP/sdist-env/bin/python" -m robo_control.vision.lens_capture --help
 

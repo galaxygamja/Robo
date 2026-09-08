@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "coordinate_system": "bottom_left_x_right_y_up_mm",
+  "radii_mm": {"H1": null, "H2": null, "B1": null, "B2": null},
+  "cell_mm": 40,
+  "obstacles_mm": [],
+  "tasks": [
+    {
+      "task_id": "move-D1",
+      "pickup": {
+        "mode": "observed_piece",
+        "heading_rad": null,
+        "tool_forward_mm": null,
+        "tool_left_mm": null,
+        "max_anchor_drift_mm": null,
+        "replan_distance_mm": null,
+        "max_replans": null
+      },
+      "drop": {"x_mm": null, "y_mm": null, "heading_rad": null},
+      "retreat": {"x_mm": null, "y_mm": null, "heading_rad": null}
+    }
+  ]
+}

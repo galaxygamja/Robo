@@ -1,2 +1,3 @@
 recursive-include config *.json
 recursive-include robo_control/data *.json
+include tools/verify_mission_operations.py

@@ -331,6 +331,18 @@ class WireCommandSender:
         self._time(now_s)
         return self.snapshot()
 
+    @property
+    def pending_body_setpoint(self):
+        """Detached hazard data only; reading never sends, renews or polls.
+
+        An ACK-waiting command may still be in transit or already applied.
+        A supervisor's newer local zero output does not cancel that command.
+        """
+        request = self._pending["request"] if self._pending else None
+        if request is None or request["type"] != "drive":
+            return None
+        return {"v_mm_s": request["v_mm_s"], "omega_rad_s": request["omega_rad_s"]}
+
     def snapshot(self):
         return {"robot_id": self.robot_id, "host_session_id": self.session_id,
                 "boot_id": self._boot_id, "link_id": self._link_id,
