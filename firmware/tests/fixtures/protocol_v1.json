@@ -1,0 +1,17 @@
+{
+  "description": "Golden JSON shapes only: IDs/times are deterministic test examples, not live credentials or sensor measurements.",
+  "requests": {
+    "hello": {"protocol":"robo-hw","version":1,"robot_id":"H1","token":"EXAMPLE_TOKEN_NOT_FOR_REAL_USE_123456","request_id":"req_1","type":"hello"},
+    "arm": {"protocol":"robo-hw","version":1,"robot_id":"H1","token":"EXAMPLE_TOKEN_NOT_FOR_REAL_USE_123456","request_id":"req_2","type":"arm","boot_id":"00112233445566778899aabbccddeeff","permit":"ffeeddccbbaa99887766554433221100","seq":1},
+    "command": {"protocol":"robo-hw","version":1,"robot_id":"H1","token":"EXAMPLE_TOKEN_NOT_FOR_REAL_USE_123456","request_id":"req_3","type":"command","boot_id":"00112233445566778899aabbccddeeff","permit":"112233445566778899aabbccddeeff00","seq":2,"ttl_ms":200,"left_pwm":40,"right_pwm":40,"servo_us":[0,0]},
+    "stop": {"protocol":"robo-hw","version":1,"robot_id":"H1","token":"EXAMPLE_TOKEN_NOT_FOR_REAL_USE_123456","request_id":"req_4","type":"stop","seq":1},
+    "estop": {"protocol":"robo-hw","version":1,"robot_id":"H1","token":"EXAMPLE_TOKEN_NOT_FOR_REAL_USE_123456","request_id":"req_5","type":"estop"}
+  },
+  "responses": {
+    "hello": {"protocol":"robo-hw","version":1,"type":"response","robot_id":"H1","request_id":"req_1","boot_id":"00112233445566778899aabbccddeeff","permit":"ffeeddccbbaa99887766554433221100","state":"disarmed","accepted":true,"reason":"ok","seq":0,"lease_remaining_ms":250,"left_pwm":0,"right_pwm":0,"servo_us":[0,0],"disc_present":false,"hardware_enabled":true,"uptime_ms":1000},
+    "arm": {"protocol":"robo-hw","version":1,"type":"response","robot_id":"H1","request_id":"req_2","boot_id":"00112233445566778899aabbccddeeff","permit":"112233445566778899aabbccddeeff00","state":"armed","accepted":true,"reason":"ok","seq":1,"lease_remaining_ms":250,"left_pwm":0,"right_pwm":0,"servo_us":[0,0],"disc_present":false,"hardware_enabled":true,"uptime_ms":1010},
+    "command": {"protocol":"robo-hw","version":1,"type":"response","robot_id":"H1","request_id":"req_3","boot_id":"00112233445566778899aabbccddeeff","permit":"2233445566778899aabbccddeeff0011","state":"armed","accepted":true,"reason":"ok","seq":2,"lease_remaining_ms":190,"left_pwm":40,"right_pwm":40,"servo_us":[0,0],"disc_present":false,"hardware_enabled":true,"uptime_ms":1020},
+    "stop": {"protocol":"robo-hw","version":1,"type":"response","robot_id":"H1","request_id":"req_4","boot_id":"00112233445566778899aabbccddeeff","permit":"","state":"disarmed","accepted":true,"reason":"ok","seq":2,"lease_remaining_ms":0,"left_pwm":0,"right_pwm":0,"servo_us":[0,0],"disc_present":false,"hardware_enabled":true,"uptime_ms":1030},
+    "estop": {"protocol":"robo-hw","version":1,"type":"response","robot_id":"H1","request_id":"req_5","boot_id":"00112233445566778899aabbccddeeff","permit":"","state":"estop","accepted":true,"reason":"ok","seq":2,"lease_remaining_ms":0,"left_pwm":0,"right_pwm":0,"servo_us":[0,0],"disc_present":false,"hardware_enabled":true,"uptime_ms":1040}
+  }
+}

@@ -150,6 +150,14 @@ class LensRuntimeIntegrationTests(unittest.TestCase):
                 continue
             self.assertTrue(row["observation"]["lens_correction_applied"])
             self.assertEqual(self.lens.fingerprint, row["observation"]["lens_calibration_id"])
+            if row["observation"]["status"] == "rejected_frame":
+                # Slow decoding may legitimately reject a frame. It deliberately
+                # has no poses; acceptance still requires stopped outputs.
+                self.assertFalse(row["observation"]["observation_usable"])
+                for command in row["actuator"]["robots"]:
+                    self.assertEqual(command["velocity_world_mm_s"], [0., 0.])
+                    self.assertEqual(command["angular_velocity_rad_s"], 0.)
+                continue
             for robot in row["observation"]["robots"]:
                 x, y = self.centres_ideal[robot["robot_id"]]
                 expected = ((x - 60) * 1143 / 520, (440 - y) * 1181 / 400)

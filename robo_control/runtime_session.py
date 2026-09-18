@@ -41,7 +41,7 @@ class LiveControlSession:
                  limits=None, track_objects=False, session_id=None, configuration_id=None,
                  mission_plan=None, fleet=None, wire_fake=False, wire_options=None,
                  binding_plan=None, observation_profile_id=None, mission_observe_only=False,
-                 obstacle_plan=None):
+                 obstacle_plan=None, drive_model=None):
         if obstacle_plan is not None and (mission_plan is None or track_objects is not True):
             raise ValueError("Observed object obstacles require a mission and object tracking")
         if (type(mission_observe_only) is not bool or mission_observe_only
@@ -73,7 +73,10 @@ class LiveControlSession:
             field_size_mm=field_size_mm, limits=limits) if mission_plan is not None else None)
         if self.mission and self.mission.pickup_policies and not mission_observe_only and binding_plan is None:
             raise ValueError("Observed-piece pickup execution requires reviewed --bindings")
-        drive_model = "differential_body" if self.mission else "mecanum"
+        if drive_model is None:
+            drive_model = "differential_body" if self.mission else "mecanum"
+        if self.mission and drive_model != "differential_body":
+            raise ValueError("Mission execution requires differential body commands")
         self.controller = ClosedLoopController(roles=roles, goals=goals,
             radii_mm=self.mission.radii if self.mission else radii_mm,
             limits=limits, field_size_mm=field_size_mm, session_id=session_id, drive_model=drive_model)
@@ -224,7 +227,9 @@ class LiveControlSession:
                 "wire": self.wire.snapshot() if self.wire else None,
                 "device_io": False, "hardware_ready": False, "motion_permitted": False}
 
-    def advance(self, record, now_s, *, feedback=None):
+    def advance(self, record, now_s, *, feedback=None, command_permitted=True):
+        if type(command_permitted) is not bool:
+            raise ValueError("Command permission must be Boolean")
         if not _finite(now_s) or now_s < 0 or (self.now is not None and now_s < self.now):
             self.close(self.now or 0.0, "invalid_runtime_clock")
             raise ValueError("Runtime clock must be finite, nonnegative and monotonic")
@@ -381,7 +386,7 @@ class LiveControlSession:
                 # Camera startup cannot spend a receiver's movement lease.
                 self.wire.start(now_s)
                 started_now = True
-            transport_ready = self.wire is None or (self.wire.ready and not started_now)
+            transport_ready = command_permitted and (self.wire is None or (self.wire.ready and not started_now))
             self.controller.set_paused(not ready or not transport_ready)
             if self.mission and ready and transport_ready:
                 self.controller.set_goals(self.mission.prepare(record, now_s, feedback, world=world))
@@ -399,7 +404,7 @@ class LiveControlSession:
                 self.wire.submit(packet, now_s)
             if self.wire and self.wire.fault:
                 return self._wire_failure(now_s)
-            if (self.mission and ready and self.bank.reason == "mock_active"
+            if (self.mission and ready and transport_ready and self.bank.reason == "mock_active"
                     and (self.wire is None or self.wire.ready)):
                 self.mission.accept_arrival(packet, record, now_s)
                 if self.mission.done:

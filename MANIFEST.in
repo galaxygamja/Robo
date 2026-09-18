@@ -2,3 +2,10 @@ recursive-include config *.json
 recursive-include robo_control/data *.json
 include tools/verify_mission_operations.py
 include tools/verify_compound_faults.py
+include SETUP_HARDWARE.bat
+include docs/HARDWARE_START_KO.md
+include docs/HARDWARE_RELEASE_KO.md
+include firmware/platformio.ini
+recursive-include firmware *.h *.cpp *.md *.json
+exclude firmware/include/secrets.h
+prune firmware/.pio

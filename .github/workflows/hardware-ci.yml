@@ -1,0 +1,43 @@
+name: hardware-ci
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install platformio==6.1.18
+      - name: Build all four ESP32-C3 images with outputs disabled
+        run: python -m platformio run -d firmware
+      - name: Execute firmware watchdog state machine tests
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Ifirmware/include firmware/tests/native/lease_state_test.cpp -o /tmp/robo-lease-test
+          /tmp/robo-lease-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: esp32-c3-four-robots-output-disabled
+          path: |
+            firmware/.pio/build/*/firmware.bin
+            firmware/.pio/build/*/bootloader.bin
+            firmware/.pio/build/*/partitions.bin
+          if-no-files-found: error
+  physical-bridge:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e ".[vision]"
+      - run: python -m unittest discover -s tests -p "test_hardware*.py" -v
+      - run: python -m robo_control.hardware init --output local_state/hardware.json
+      - run: python -m robo_control.hardware_runtime --help

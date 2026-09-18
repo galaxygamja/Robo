@@ -11,4 +11,8 @@ recordings/
 local_state/
 .DS_Store
 Thumbs.db
+.pio/
+firmware/include/secrets.h
+*.bin
+*.elf
 

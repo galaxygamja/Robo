@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "robo-control"
-version = "0.1.0"
-description = "Hardware-independent six-robot mission planner and simulator"
+version = "0.2.0"
+description = "Robo vision, differential-drive control, simulator and ESP32-C3 commissioning tools"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Robo Team" }]
@@ -17,6 +17,9 @@ dev = ["pytest>=8.0"]
 
 [project.scripts]
 robo-control = "robo_control.__main__:main"
+robo-hardware = "robo_control.hardware:main"
+robo-hardware-runtime = "robo_control.hardware_runtime:main"
+robo-hardware-calibration = "robo_control.hardware_calibration:main"
 
 [tool.setuptools.packages.find]
 include = ["robo_control*"]
