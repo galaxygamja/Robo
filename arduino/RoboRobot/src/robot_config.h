@@ -135,4 +135,3 @@ static_assert(driveCalibrationValid(), "Drive servo pulses need 1000 <= min < ne
 static_assert(servoMinUs[0] >= 900 && servoMaxUs[0] <= 2100 && servoMinUs[0] <= servoMaxUs[0], "Invalid servo 0 endpoints");
 static_assert(servoMinUs[1] >= 900 && servoMaxUs[1] <= 2100 && servoMinUs[1] <= servoMaxUs[1], "Invalid servo 1 endpoints");
 } // namespace config
-

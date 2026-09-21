@@ -15,4 +15,8 @@ Thumbs.db
 firmware/include/secrets.h
 *.bin
 *.elf
+arduino/**/Secrets.h
+arduino/**/secrets.h
+arduino/**/sketch.yaml
+arduino/**/build/
 

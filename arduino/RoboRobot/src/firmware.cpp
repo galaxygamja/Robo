@@ -1,3 +1,5 @@
+// Generated from firmware/src/main.cpp; edit the canonical source.
+#include "../RobotSettings.h"
 #include <Arduino.h>
 #include <esp_arduino_version.h>
 #if !defined(ARDUINO_ARCH_ESP32) || !defined(CONFIG_IDF_TARGET_ESP32C3)
@@ -289,7 +291,7 @@ void processPacket() {
 }
 } // namespace
 
-void setup() {
+void roboSetup() {
   // Avoid boot-time motion or a servo centering pulse.
   // Only configure pins present on this profile; H1 GPIO4/6/10 stay unused.
   if (config::continuousDrive) {
@@ -322,7 +324,7 @@ void setup() {
   Serial.printf("%s (wire %s), firmware %s, %s; hardware outputs %s; calibration %s.\n", config::displayId, config::robotId, config::firmwareVersion, robot_profiles::driveName(config::profile.drive), config::hardwareEnabled ? "ENABLED" : "DISABLED", config::calibrationConfirmed ? "ACKNOWLEDGED" : "NOT CONFIRMED");
 }
 
-void loop() {
+void roboLoop() {
   {
     Guard guard;
     checkExpiry(millis());

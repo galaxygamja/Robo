@@ -1,5 +1,7 @@
 # Robo Control Lab
 
+> **2026-09-21 Arduino IDE 배포:** [처음부터 업로드하는 안내서](docs/ARDUINO_START_HERE_KO.md)와 [RoboRobot.ino](arduino/RoboRobot/RoboRobot.ino)를 사용하세요. 로봇 보드 코드는 Arduino C/C++ (`setup`/`loop`)입니다. **햄스터는 SM-S4303R 구동 서보2개**, 비버3대는 N20 DC 모터+DRV8833로 구분했습니다. 대상 보드는 ESP32-C3 SuperMini이며 UNO/Nano용은 아닙니다. 카메라 인식·경로계획은 기존 Python 서버에 남습니다. 모든 물리 출력은 기본 비활성이고, 배선·중립·구동 방향·서보 범위·속도 보정 및 실물 시험을 거쳐야 합니다. 아래 과거 N20 공통 구동 안내보다 이 새 안내를 우선하세요.
+
 > 2026-09-18 하드웨어 시작: [실제 조립·펌웨어·서버 실행 안내](docs/HARDWARE_START_KO.md). 구매한 ESP32-C3/DRV8833/N20/MG90S를 위한 2륜 구동 경로를 제공합니다. 내부 ID는 H1/H2/B1/B2를 유지하며 H2가 화면의 비버 B3입니다. 배선·전원·속도·서보 보정 전에는 실제 출력을 켜지 않습니다. 아래 과거 기록의 “실물 I/O 미연결”은 해당 기록 당시의 경로를 설명합니다. **실물 완주 검증은 아직 하지 않았습니다.**
 
 > 최신 출력 하드웨어(2026-09-08): [햄스터 v0.9](v0.9/README.md)와 [비버 v0.7](beaver_v0.7_hardware/README.md)에 N20 6 V 100 RPM 모터, Ø43 mm D축 바퀴와 HJ-2S 7.4 V 350 mAh 배터리 장착부를 반영했습니다. 공통 규격·전원 안전·실물 확인 항목은 [모터·배터리 규격](MOTOR_BATTERY_SPECIFICATIONS.md)을 확인하세요. 두 버전 모두 자동 기하 검증을 통과했으며, 대량 출력 전 모터 마운트와 배터리 트레이 시험 출력이 필요합니다.

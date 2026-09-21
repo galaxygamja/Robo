@@ -1,75 +1,84 @@
-# ESP32-C3 실물 로봇 펌웨어
+# Robo Arduino C++ 펌웨어 2.0.0
 
-대상은 **ESP32-C3 SuperMini + DRV8833 + 엔코더 없는 DC 모터 2개**입니다. 바퀴의 실제 회전수/이동거리/집기 성공을 측정했다고 보고하지 않습니다. 전진 속도는 실측 보정 후 서버의 영상 위치 추적과 함께 사용합니다. 구매한 보드의 GPIO 인쇄와 칩 종류부터 확인하세요. ESP32 일반형/S3에는 이 핀맵을 그대로 사용하지 않습니다.
+**Arduino IDE로 올리려면 [처음부터 따라 하는 한국어 안내서](../docs/ARDUINO_START_HERE_KO.md)를 먼저 읽으세요.** 열 파일은 `arduino/RoboRobot/RoboRobot.ino`입니다. 이 `firmware/` 폴더는 같은 제어 코드의 PlatformIO 개발·검증용 원본입니다.
 
-| 환경 | 통신 ID | 서보 | 센서 |
-|---|---|---|---|
-| H1 | H1 | 디스크 게이트 1개 | TCRT5000 D0 |
-| H2 | H2 | 비버 집게/투하 2개 | 없음 |
-| B1 | B1 | 비버 집게/투하 2개 | 없음 |
-| B2 | B2 | 비버 집게/투하 2개 | 없음 |
+대상 보드는 저장소에서 사용한 **ESP32-C3 SuperMini**입니다. Arduino IDE를 쓴다는 뜻이지 Arduino Uno/Nano 보드용이라는 뜻이 아닙니다. 실제 구매한 칩과 GPIO 인쇄를 확인하세요. ESP32 일반형/S3/Uno에 이 핀맵을 그대로 쓰면 안 됩니다.
 
-H2는 기존 서버/AprilTag 식별자를 유지한 **비버 로봇**입니다. 이름 때문에 두 번째 햄스터로 조립하지 마세요. 태그와 서버 설정은 같은 ID를 사용합니다.
+## 로봇별 구동 방식
 
-## 핀과 전원
+| 실물 이름 | 프로필 | 통신 ID | 바퀴 구동 | 작업용 서보 |
+|---|---:|---|---|---|
+| 햄스터 H1 | 1 | H1 | SM-S4303R 연속회전 서보 2개 | MG90S 디스크 게이트 1개 |
+| 비버 B1 | 2 | B1 | N20 DC 모터 2개 + DRV8833 | MG90S 집게·투하부 2개 |
+| 비버 B2 | 3 | B2 | N20 DC 모터 2개 + DRV8833 | MG90S 집게·투하부 2개 |
+| 비버 B3 | 4 | H2 | N20 DC 모터 2개 + DRV8833 | MG90S 집게·투하부 2개 |
 
-| ESP32-C3 GPIO | 연결 | PWM |
-|---|---|---|
-| 3 / 4 | DRV8833 AIN1 / AIN2, 왼쪽 모터 | 채널 0 / 1, 20 kHz, 8비트 |
-| 5 / 6 | DRV8833 BIN1 / BIN2, 오른쪽 모터 | 채널 2 / 3, 20 kHz, 8비트 |
-| 7 | 서보 0 신호 | 채널 4, 50 Hz, 14비트 |
-| 10 | 서보 1 신호, H1은 미사용 | 채널 5, 50 Hz, 14비트 |
-| 0 | H1 TCRT5000 D0 | 입력, 기본 active-low |
+B3의 통신 ID `H2`는 기존 서버/AprilTag 연결을 보존한 것입니다. 두 번째 햄스터가 아닙니다. **H1에는 DRV8833를 거쳐 바퀴 서보를 연결하지 않습니다.** 이전 모든 로봇을 DC 모터라고 기술한 안내보다 이 표가 우선합니다.
 
-USB GPIO18/19와 부트 관련 GPIO2/8/9는 사용하지 않습니다. 설정에서 핀 중복/예약 핀을 사용하면 컴파일이 실패합니다. DRV8833 모터 출력 AOUT/BOUT은 각각 해당 모터에 연결합니다. 모터 방향은 `include/robot_config.h`의 `motorDirection`으로 각각 반전할 수 있습니다.
+## GPIO와 전원
 
-2S 배터리는 조절기를 거쳐 모터용 6V, 서보용 5V에 공급하고 GND를 공통으로 연결합니다. ESP32의 GPIO는 3.3V 입력입니다. TCRT5000 D0 출력이 5V로 올라가는 모듈은 직접 연결하지 말고 3.3V 동작/출력 여부를 확인해야 합니다. ESP32 보드의 전원 입력과 USB 동시 연결 가능 여부는 구매한 보드에 맞게 확인합니다.
+| GPIO | 햄스터 H1 | 비버 B1/B2/B3 |
+|---:|---|---|
+| 3 | 왼쪽 SM-S4303R 신호 | DRV8833 AIN1 |
+| 4 | 미사용 | DRV8833 AIN2 |
+| 5 | 오른쪽 SM-S4303R 신호 | DRV8833 BIN1 |
+| 6 | 미사용 | DRV8833 BIN2 |
+| 7 | MG90S 디스크 게이트 신호 | MG90S 앞 집게 신호 |
+| 10 | 미사용 | MG90S 뒤 투하 게이트 신호 |
+| 0 | TCRT5000 디지털 D0 | 미사용 |
 
-DRV8833의 `nSLEEP/SLP` 핀은 판매 모듈마다 노출/풀업이 다릅니다. 이 펌웨어는 nSLEEP 핀을 임의 GPIO에 연결했다고 가정하지 않습니다. 구매 모듈 회로를 확인하고 드라이버의 허용 논리전압으로 활성화하세요. VM에 임의 직결하지 마세요. 펌웨어가 실행되기 전 리셋/부트로더 구간까지 입력을 LOW로 보장하려면 모듈 입력 풀다운을 확인해야 합니다.
+모든 GND를 공통으로 연결합니다. 2S LiPo는 완충 8.4 V이며 보드 GPIO·5 V 서보·6 V DC 모터에 직결하지 않습니다. 서보 전원은 보드 3.3 V 핀이 아닌 충분한 전류의 별도 조절 전원에서 공급합니다. 모터/서보 전원은 실물 부품 허용 범위와 부하 시 전압을 확인하고, 전원 모듈은 2S 배터리의 실제 사용 범위 전체에서 검증하세요. USB와 외부 보드 전원을 동시에 연결할 때는 구매한 SuperMini의 역급전 보호를 확인해야 합니다.
 
-## 빌드와 최초 설정
+GPIO는 3.3 V 기준입니다. 5 V 출력 TCRT5000 D0를 직접 연결하지 않습니다. DRV8833 AOUT/BOUT은 각각 좌우 DC 모터에 연결하며, `nSLEEP/SLP`는 구매 모듈 회로에 맞춰 활성화합니다. 펌웨어는 별도의 nSLEEP 제어를 가정하지 않습니다. GPIO18/19(USB), 2/8/9(부트 관련)는 이 핀맵에서 사용하지 않습니다.
+
+## 두 가지 빌드 경로
+
+### Arduino IDE — 권장 시작점
+
+1. 저장소 전체를 다운로드하고 `arduino/RoboRobot/RoboRobot.ino`를 엽니다. `.ino`만 따로 복사하지 않습니다.
+2. 보드 관리자에서 **esp32 by Espressif Systems 2.0.17**, 라이브러리 관리자에서 **ArduinoJson 6.21.5**를 설치합니다.
+3. 보드는 **ESP32C3 Dev Module**, USB CDC On Boot는 Enabled, Flash Mode는 DIO로 선택합니다. 실제 보드의 플래시 용량을 확인합니다.
+4. 옆 탭 `RobotSettings.h`에서 `ROBOT_PROFILE`을 설정합니다. `Secrets.example.h`를 같은 폴더의 `Secrets.h`로 복사하여 Wi-Fi와 토큰을 적습니다. 최초에는 `HARDWARE_OUTPUT_ENABLED 0`, `ACTUATOR_CALIBRATION_CONFIRMED 0`을 유지합니다.
+5. 실제 출력 전원은 분리한 상태로 로봇 한 대만 USB로 연결하고 검증·업로드합니다. 시리얼 모니터는 115200입니다.
+
+이 코드는 ESP32 Arduino 코어 2.0.17의 LEDC API를 사용합니다. 3.x로 자동 변경하지 말고, 변경할 경우 별도로 이식·재검증하세요. Uno용 일반 Servo 라이브러리는 필요하지 않습니다.
+
+### PlatformIO — 같은 원본의 개발용 빌드
 
 ```powershell
 python -m pip install platformio==6.1.18
-cd firmware
-Copy-Item include/secrets.example.h include/secrets.h
+Copy-Item firmware/include/secrets.example.h firmware/include/secrets.h
+python -m platformio run --project-dir firmware
 ```
 
-`secrets.h`에 전용 WPA2 이상 Wi-Fi의 SSID/암호와 서버와 동일한 임의 토큰(영문/숫자/`_`/`-`, 24~64자)을 입력합니다. 파일은 Git에서 제외됩니다. 토큰이 없거나 예제 값이면 Wi-Fi를 시작하지 않고 안전 대기합니다.
+실제 Wi-Fi/토큰은 Git 제외 파일 `firmware/include/secrets.h`에 적습니다. 환경 H1/B1/B2/B3가 각 로봇을 선택하며 H2는 B3와 같은 구동 코드의 이전 이름 별칭입니다. 이 경로에서는 환경 ID와 충돌하는 프로필을 추가하지 않습니다. `platformio.ini`가 Arduino ESP32 2.0.17, ArduinoJson 6.21.5를 고정합니다. 한 대만 빌드하려면 `-e H1` 등을 붙입니다.
+
+사용자가 실제 업로드할 때의 명령 예시입니다. COM5는 실제 포트로 바꾸고, 로봇 ID를 한 대씩 확인합니다. 저장소 배포 자체는 보드에 업로드하지 않습니다.
 
 ```powershell
-python -m platformio run
+python -m platformio run --project-dir firmware -e H1 -t upload --upload-port COM5
+python -m platformio device monitor --project-dir firmware --port COM5 --baud 115200
 ```
 
-플랫폼은 `espressif32@6.9.0`, Arduino 프레임워크는 `3.20017.241212+sha.dcc1105b`(Arduino ESP32 2.0.17), ArduinoJson은 `6.21.5`로 고정했습니다. 네 환경 모두 빌드하며, 한 대만 빌드하려면 `-e H1`처럼 지정합니다. 이 저장소 배포 과정에서는 실제 보드에 업로드하지 않습니다. 사용자가 USB에 로봇 **한 대만** 연결한 뒤 올바른 ID를 선택해 실행할 업로드 명령은 다음과 같습니다.
+Arduino IDE의 `RobotSettings.h`와 PlatformIO의 `secrets.h`는 서로 다른 개인 설정입니다. 한 경로에서 편집한 값이 다른 경로에 자동 반영되지 않습니다.
 
-```powershell
-python -m platformio run -e H1 -t upload --upload-port COM5
-python -m platformio device monitor --port COM5 --baud 115200
-```
+## 출력 허가와 보정
 
-COM5는 예시이므로 실제 포트로 바꿉니다. USB 통신 테스트 중에는 `HARDWARE_OUTPUT_ENABLED 0`을 유지합니다. 이때 모든 물리 PWM/서보 출력은 0이며 응답의 `hardware_enabled`는 false입니다. 서버의 실물 운전 기능은 이 상태를 거부합니다.
+실제 출력에는 `HARDWARE_OUTPUT_ENABLED 1`과 `ACTUATOR_CALIBRATION_CONFIRMED 1`이 **둘 다** 필요합니다. 둘 중 하나라도 0이면 모든 물리 출력은 꺼집니다. 두 번째 값은 시험자가 배선·안전한 시험 펄스 범위·구동 방식 확인을 명시하는 표시이지, 펌웨어가 자동 측정했다는 증거가 아닙니다. 켜기 전에 안내서의 한 대씩 띄운 바퀴 시험 절차와 독립적인 전원 차단 수단을 준비하세요.
 
-배선/전압 확인과 바퀴를 띄운 테스트 준비가 끝나면 `secrets.h`에서 `HARDWARE_OUTPUT_ENABLED 1`로 변경하고 **다시 빌드/업로드**합니다. 그래도 부팅만으로는 움직이지 않습니다. 인증된 hello → arm → 유효한 command가 있어야 움직입니다. 서버 설정의 `max_pwm`는 펌웨어의 기본 제한 96 이하로 맞추세요. 서보 끝점은 링크를 분리한 상태에서 측정하고 `servoMinUs`/`servoMaxUs`를 좁히세요. 중립 자동 이동은 없습니다.
+H1 바퀴 서보는 각도를 보내는 서보가 아닙니다. `DRIVE_LEFT_NEUTRAL_US`, `DRIVE_RIGHT_NEUTRAL_US` 부근을 정지점으로 하여 펄스의 방향과 차이로 회전 방향/속도를 조절합니다. 기본 1500 µs와 범위 1380~1620 µs는 **실측되지 않은 초기 설정**입니다. 개별 제품에서 중립 미끄러짐이나 회전이 생길 수 있으므로 직접 확인합니다. `DRIVE_LEFT_DIRECTION`, `DRIVE_RIGHT_DIRECTION`은 각각 +1 또는 -1이며, 양수 명령이 실제 전진이 되도록 확인합니다.
 
-## 정지 동작
+`left_pwm/right_pwm`라는 통신 이름은 유지하지만 이제 공통 **부호 있는 구동 명령값**입니다. 기본 범위는 -96~96입니다. H1에서는 중립 기준 서보 펄스로, 비버에서는 DC 모터 PWM으로 변환합니다. 96 mm/s도 96%도 아니며 H1의 값은 DC 듀티가 아닙니다. 바닥 부하에서 네 방향 속도 곡선을 새로 실측해야 합니다.
 
-- 부팅 시 모터 입력과 서보 펄스를 모두 0으로 둡니다.
-- 별도 고우선순위 FreeRTOS 태스크가 약 2ms 주기로 제어 유효기간을 검사합니다. 이는 실제 정지거리 보장이 아니며 모터는 전기적 코스트 정지합니다.
-- TTL 최대 250ms는 **허가를 발급한 보드 시각**부터 계산합니다. 도착한 시각부터 새 250ms를 주지 않습니다.
-- 네트워크 단절, 기한 초과, 현재 제어자의 잘못된 명령은 출력 0 + disarmed 처리합니다. 늦은 패킷으로 재출발하지 않습니다.
-- `stop`은 일반 정지, `estop`은 재부팅 전까지 해제되지 않는 정지입니다. 서보 펄스도 중단되므로 집게가 하중을 계속 지지한다고 가정하지 마세요.
-- 재운전은 새 hello/arm 절차가 필요합니다. 네트워크 명령으로 estop을 해제할 수 없습니다.
+작업용 MG90S의 `TOOL0_MIN_US/MAX_US`, `TOOL1_MIN_US/MAX_US` 기본 900~2100 µs도 실제 조립 기구가 허용한다는 보장이 없습니다. 링크를 분리한 시험과 간섭 확인으로 범위를 좁힙니다. `servo_us`는 작업용 두 채널이며 H1 바퀴 서보 두 개를 여기에 넣지 않습니다. H1의 두 번째 작업 채널은 항상 0입니다.
 
-통신 규격은 [PROTOCOL.md](PROTOCOL.md)에 있습니다. 토큰은 평문 UDP 인증 문자열이며 암호화/HMAC이 아닙니다. 신뢰하는 전용 WPA2 이상 로컬망에서만 사용하고 인터넷에 포트를 열지 않습니다.
+## 정지의 의미와 검증 한계
 
-## 로컬 테스트
+- 부팅·arm·disarm·stop·estop에서는 모터/서보 펄스를 끕니다. 기동만으로 중앙 각도로 움직이지 않습니다.
+- 정상 H1 command의 구동 값 0은 보정한 중립 펄스입니다. 반면 disarm/통신 만료의 0 출력은 **펄스 없음**입니다. 그 둘의 물리 동작은 같다고 보장하지 않습니다.
+- TTL은 보드가 permit을 발급한 시각부터 최대 250 ms입니다. 늦게 도착한 패킷으로 유효시간을 새로 시작하지 않습니다. 별도 안전 태스크가 만료를 감시합니다.
+- 통신 단절/기한 만료/현재 제어자의 잘못된 명령은 출력 해제와 disarm을 유발합니다. 모터의 관성, 서보 내부 동작, 집게 하중 유지까지 소프트웨어만으로 보장하지 않습니다.
+- estop은 재부팅 전까지 유지합니다. 하중이 떨어질 수 있으므로 안전한 위치에서 시험하고, 손으로 조작 가능한 별도 전원 차단 수단을 둡니다.
+- 컴파일·C++ 단위 시험·서버 테스트는 실제 업로드, 회전 방향, 기구 끝점, 실물 네 대 무선 주행, 대회 완주를 증명하지 않습니다.
 
-보드 없는 C++ 단위 테스트는 Linux/macOS의 C++ 컴파일러로 실행할 수 있습니다.
-
-```sh
-c++ -std=c++17 -Iinclude tests/native/lease_state_test.cpp -o /tmp/robo-lease-test
-/tmp/robo-lease-test
-```
-
-테스트는 TTL 발급시각 기준, 재생/중복 시퀀스, 기한 만료 뒤 재활성화 차단, estop 유지, 32비트 시각 롤오버, JSON 중복 키/후행 데이터 거부를 확인합니다. 이는 컴파일/로직 테스트이며 실제 배선, 모터 방향, 센서 극성, 서보 각도와 4대 무선 주행 안정성은 조립 후 검증해야 합니다.
+통신 상세는 [PROTOCOL.md](PROTOCOL.md)입니다. 이번 수정 범위는 Arduino 보드 펌웨어이며 기존 Python 서버는 변경하지 않습니다. 카메라·AprilTag·색 검출·경로 계획은 여전히 서버에서 수행합니다. ESP32에 OpenCV나 전체 서버를 올리지 않습니다. 드론 자동 비행이나 움직이는 드론 카메라의 실물 운전 검증이 추가된 배포도 아닙니다. 기존 서버는 새 구동 방식 메타데이터를 자동 대조하지 않으므로 사람이 보드의 부팅 로그와 실물을 대조해야 합니다.

@@ -9,3 +9,10 @@ include firmware/platformio.ini
 recursive-include firmware *.h *.cpp *.md *.json
 exclude firmware/include/secrets.h
 prune firmware/.pio
+include docs/ARDUINO_START_HERE_KO.md
+include docs/ARDUINO_RELEASE_KO.md
+include tools/sync_arduino_sketch.py
+recursive-include arduino *.ino *.h *.cpp *.md
+exclude arduino/RoboRobot/Secrets.h
+exclude arduino/RoboRobot/secrets.h
+prune arduino/RoboRobot/build
